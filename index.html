@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="AIoT DIC2 multiple linear regression: 50 Startups, Boston Housing and your CSV datasets. Cross-validated feature selection, charts and downloadable results.">
+  <title>AIoT DIC2 | Multiple Linear Regression Lab</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="site-container nav-wrap">
+      <a class="brand" href="#top"><span class="brand-symbol">Σ</span> DIC2 <strong>Regression Lab</strong></a>
+      <nav aria-label="主選單"><a href="#workspace">分析工作區</a><a href="#evaluation">模型評估</a><a href="#predictor">即時預測</a><a href="#methodology">方法與說明</a></nav>
+      <span class="nav-label">NCHU · AIoT Data Analytics</span>
+    </div>
+  </header>
+
+  <main id="top">
+    <section class="hero">
+      <div class="site-container hero-grid">
+        <div>
+          <div class="eyebrow"><span class="signal"></span> DIC2 · Interactive Machine Learning Project</div>
+          <h1>Multiple Linear Regression<br><em>&amp; Feature Selection</em></h1>
+          <p class="hero-copy">從 50 Startups、Boston Housing 到自訂 CSV：用同一套可重現的流程，完成多元線性回歸、特徵選取、交叉驗證與實際預測。</p>
+          <div class="hero-tags"><span>OLS Regression</span><span>5-fold Cross-validation</span><span>Forward / Backward / Correlation</span><span>No backend · No API key</span></div>
+          <a href="#workspace" class="hero-link">開始探索 <span aria-hidden="true">↗</span></a>
+        </div>
+        <aside class="hero-panel" aria-label="專案摘要">
+          <div class="hero-panel-head"><span>REGRESSION WORKFLOW</span><span class="hero-dot">● ● ●</span></div>
+          <div class="formula">ŷ = β₀ + β₁x₁ + ··· + βₚxₚ</div>
+          <div class="workflow-mini"><span>CSV</span><b>→</b><span>Encode</span><b>→</b><span>Train</span><b>→</b><span>Evaluate</span></div>
+          <div class="panel-separator"></div>
+          <div class="panel-stat"><span>PROBLEMS</span><strong>02 <small>+ custom CSV</small></strong></div>
+          <div class="panel-stat"><span>EXPERIMENT</span><strong>80 / 20 <small>train / test</small></strong></div>
+          <div class="panel-stat"><span>RANDOM SEED</span><strong>42 <small>reproducible</small></strong></div>
+        </aside>
+      </div>
+    </section>
+
+    <div class="site-container body-content">
+      <section id="workspace" class="section-block">
+        <div class="section-heading"><div><span class="section-index">01 / EXPERIMENT SETUP</span><h2>資料集與模型設定</h2><p>選擇其中一個課堂問題，或上傳自己的資料，然後重新訓練模型。</p></div><span class="section-status" id="sourceBadge">READY TO ANALYZE</span></div>
+        <div class="control-grid">
+          <div class="card form-card">
+            <div class="card-title"><span class="icon-square">01</span> 分析目標 <small>Problem &amp; Algorithm</small></div>
+            <label for="datasetSelect">題目 / Problem</label>
+            <select id="datasetSelect"><option value="startups">50 Startups — 預測公司利潤</option><option value="boston">Boston Housing — 預測住宅價格</option></select>
+            <div class="form-row"><div><label for="targetSelect">預測目標 (Y)</label><select id="targetSelect"></select></div><div><label for="methodSelect">特徵選取方法</label><select id="methodSelect"><option value="forward">Forward SFS · 5-fold CV</option><option value="backward">Backward Elimination · 5-fold CV</option><option value="correlation">Correlation Ranking · 基準</option></select></div></div>
+            <button id="runButton" class="btn btn-primary" type="button">執行特徵選取與回歸分析 <span aria-hidden="true">→</span></button>
+            <p class="micro">固定 random seed=42；所有數值都依目前資料集重新計算，沒有寫死評分結果。</p>
+          </div>
+          <div class="card form-card secondary-card">
+            <div class="card-title"><span class="icon-square">02</span> 匯入自訂資料 <small>Extra credit · +2</small></div>
+            <label for="csvFile">從電腦上傳 CSV</label>
+            <input type="file" id="csvFile" accept=".csv,text/csv" aria-label="選擇 CSV 檔案">
+            <label for="csvUrl">或輸入公開 CSV 網址（需要支援 CORS）</label>
+            <div class="url-row"><input type="url" id="csvUrl" placeholder="https://raw.githubusercontent.com/.../file.csv"><button type="button" id="loadUrlButton" class="btn btn-outline">載入 URL</button></div>
+            <div class="source-note" id="dataStatus" role="status" aria-live="polite">內建兩套經典資料集；下載後離線也能直接操作。</div>
+            <div class="sample-link">示範資料：<a target="_blank" rel="noopener noreferrer" href="https://raw.githubusercontent.com/Avik-Jain/100-Days-Of-ML-Code/master/datasets/50_Startups.csv">50_Startups.csv ↗</a> <a target="_blank" rel="noopener noreferrer" href="https://raw.githubusercontent.com/selva86/datasets/master/BostonHousing.csv">BostonHousing.csv ↗</a></div>
+          </div>
+        </div>
+        <div class="data-strip" id="dataSummary" aria-live="polite"></div>
+      </section>
+
+      <section class="section-block" id="evaluation">
+        <div class="section-heading"><div><span class="section-index">02 / MODEL PERFORMANCE</span><h2>模型成效與特徵數比較</h2><p>同一份訓練 / 測試切分；用訓練集交叉驗證選 k，再報告獨立測試集成效。</p></div><div class="metric-switch"><label for="kSelect">檢視特徵數 k</label><select id="kSelect"></select></div></div>
+        <div class="metric-grid" id="metricGrid">
+          <div class="metric-card featured"><div class="metric-label">Holdout Test RMSE <span>↓</span></div><div class="metric-value" id="metricRMSE">—</div><div class="metric-sub">測試集平均平方誤差開根號</div></div>
+          <div class="metric-card"><div class="metric-label">Holdout Test R² <span>↑</span></div><div class="metric-value" id="metricR2">—</div><div class="metric-sub">對未見資料的解釋能力</div></div>
+          <div class="metric-card"><div class="metric-label">5-fold CV RMSE <span>↓</span></div><div class="metric-value" id="metricCV">—</div><div class="metric-sub">選擇最佳特徵數的依據</div></div>
+          <div class="metric-card"><div class="metric-label">Holdout Test MAE <span>↓</span></div><div class="metric-value" id="metricMAE">—</div><div class="metric-sub">預測值與真值的平均距離</div></div>
+        </div>
+        <div id="bestHint" class="best-hint"></div>
+        <div class="chart-grid">
+          <article class="card chart-card"><div class="card-heading"><div><h3>RMSE by Number of Features</h3><p>藍線：測試誤差；虛線：訓練集 CV 誤差（愈低愈好）</p></div><span class="subtag">Error</span></div><div class="chart-viewport" id="chartRMSE"></div><div class="chart-key"><span><i class="key-blue"></i>Test RMSE</span><span><i class="key-orange"></i>CV RMSE</span></div></article>
+          <article class="card chart-card"><div class="card-heading"><div><h3>R² by Number of Features</h3><p>比較不同 k 在測試集的泛化能力（愈高愈好）</p></div><span class="subtag">Fit quality</span></div><div class="chart-viewport" id="chartR2"></div><div class="chart-key"><span><i class="key-blue"></i>Holdout Test R²</span><span><i class="key-violet"></i>Train R²</span></div></article>
+        </div>
+        <article class="card table-card"><div class="card-heading"><div><h3>Feature Selection Progression</h3><p>每列是一組候選特徵；以 <strong>CV RMSE 最小</strong>的 k 作為建議模型。</p></div><span class="subtag">Reproducible split</span></div><div class="scroll-table"><table><thead><tr><th>k</th><th>特徵組合</th><th>5-fold CV RMSE ↓</th><th>Test RMSE ↓</th><th>Test R² ↑</th><th>Train R²</th><th>狀態</th></tr></thead><tbody id="progressBody"></tbody></table></div></article>
+      </section>
+
+      <section class="section-block">
+        <div class="section-heading"><div><span class="section-index">03 / COEFFICIENTS & DIAGNOSTICS</span><h2>解釋模型，檢查殘差</h2><p>查看入選特徵、係數和真實值對照，不把訓練分數誤當作實際準確度。</p></div><div class="button-group"><button class="btn btn-outline" id="csvButton" type="button">匯出預測 CSV</button><button class="btn btn-dark" id="reportButton" type="button">匯出分析報告 JSON ↗</button></div></div>
+        <div class="diagnostics-grid">
+          <article class="card"><div class="card-heading"><div><h3>Regression Equation</h3><p>以原始資料的單位表示的回歸係數。</p></div></div><div class="equation-box" id="equation">—</div><div class="small-tagline">目前模型的特徵 <span id="activeFeatures"></span></div><div class="scroll-table"><table><thead><tr><th>變數</th><th>估計係數 β</th><th>VIF 共線性</th></tr></thead><tbody id="coeffBody"></tbody></table></div><p class="micro">解讀：其他變數固定時，自變數增加 1 單位的平均預測變化；VIF &gt; 5 可留意共線性。</p></article>
+          <article class="card"><div class="card-heading"><div><h3>Actual vs. Predicted</h3><p>測試集散佈圖；點愈接近對角線，預測誤差愈小。</p></div><span class="subtag">Holdout 20%</span></div><div class="chart-viewport scatter-area" id="chartScatter"></div><div class="small-tagline" id="scatterSummary"></div></article>
+        </div>
+        <article class="card table-card"><div class="card-heading"><div><h3>Holdout Residual Diagnostics</h3><p>殘差 = 真值 − 預測；依絕對誤差排序，先檢查最不準確的樣本。</p></div><span class="subtag" id="residualCount">TEST SAMPLES</span></div><div class="scroll-table"><table><thead><tr><th>資料列</th><th>真實值</th><th>預測值</th><th>殘差 (真實−預測)</th><th>絕對誤差</th><th>誤差比例</th></tr></thead><tbody id="residualBody"></tbody></table></div></article>
+      </section>
+
+      <section id="predictor" class="section-block">
+        <div class="section-heading"><div><span class="section-index">04 / INTERACTIVE PREDICTION</span><h2>即時輸入，模擬預測</h2><p>自行修改特徵值，程式會直接使用選定的 OLS 模型重新計算。</p></div></div>
+        <div class="predict-grid"><div class="card"><div class="card-heading"><div><h3>輸入預測條件</h3><p>輸入值預先填入資料集的中位數或第一個類別。</p></div></div><form id="predictForm" class="input-grid"></form></div><div class="prediction-result"><span>MODEL OUTPUT</span><h3 id="predictTitle">預測結果</h3><div class="pred-number" id="predNumber">—</div><div class="prediction-model" id="predModel"></div><div class="prediction-foot">這是示範模型的估計值，不是保證收益或實際房價。</div></div></div>
+      </section>
+
+      <section id="methodology" class="section-block">
+        <div class="section-heading"><div><span class="section-index">05 / METHODOLOGY</span><h2>CRISP-DM 工作流程與模型限制</h2><p>資料清理、切分、建模、評估及部署都採相同流程處理兩個題目。</p></div></div>
+        <div class="method-grid"><div class="method-step"><span>01</span><h3>Business Understanding</h3><p>50 Startups 預測利潤；Boston Housing 預測歷史住宅價格中位數。</p></div><div class="method-step"><span>02</span><h3>Data Preparation</h3><p>去除缺值、類別 One-hot 編碼；只用訓練集計算迴歸標準化參數。</p></div><div class="method-step"><span>03</span><h3>Modeling</h3><p>80/20 固定切分、OLS 多元線性回歸、Forward / Backward / Correlation。</p></div><div class="method-step"><span>04</span><h3>Evaluation</h3><p>訓練集 5-fold CV 比較 k；另行評估未參與特徵選取的測試集。</p></div></div>
+        <div class="footnote-card"><strong>統計與資料倫理提醒</strong><p>R² 不代表因果關係。資料集小時測試結果會受 random seed 影響；這裡採固定 seed=42 便於重現。特徵選取中的 CV 分數仍有模型選擇偏差，測試資料不得回流參與選擇。Boston Housing 是歷史性的教學資料集，包含涉及種族的舊欄位（b），不適合用於當代實際房價決策。</p></div>
+      </section>
+    </div>
+  </main>
+  <footer class="footer"><div class="site-container footer-wrap"><span>DIC2 / MULTIPLE LINEAR REGRESSION LAB</span><span>Sources: Avik Jain 50 Startups · selva86 BostonHousing · NCHU AIoT Data Analytics</span></div></footer>
+  <script src="data.js"></script>
+  <script src="analysis.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
