@@ -24,7 +24,7 @@
           <div class="eyebrow"><span class="signal"></span> DIC2 · Interactive Machine Learning Project</div>
           <h1>Multiple Linear Regression<br><em>&amp; Feature Selection</em></h1>
           <p class="hero-copy">從 50 Startups、Boston Housing 到自訂 CSV：用同一套可重現的流程，完成多元線性回歸、特徵選取、交叉驗證與實際預測。</p>
-          <div class="hero-tags"><span>OLS Regression</span><span>5-fold Cross-validation</span><span>Forward / Backward / Correlation</span><span>No backend · No API key</span></div>
+          <div class="hero-tags"><span>OLS Regression</span><span>5-fold Cross-validation</span><span>5 Feature Selection Methods</span><span>No backend · No API key</span></div>
           <a href="#workspace" class="hero-link">開始探索 <span aria-hidden="true">↗</span></a>
         </div>
         <aside class="hero-panel" aria-label="專案摘要">
@@ -47,9 +47,9 @@
             <div class="card-title"><span class="icon-square">01</span> 分析目標 <small>Problem &amp; Algorithm</small></div>
             <label for="datasetSelect">題目 / Problem</label>
             <select id="datasetSelect"><option value="startups">50 Startups — 預測公司利潤</option><option value="boston">Boston Housing — 預測住宅價格</option></select>
-            <div class="form-row"><div><label for="targetSelect">預測目標 (Y)</label><select id="targetSelect"></select></div><div><label for="methodSelect">特徵選取方法</label><select id="methodSelect"><option value="forward">Forward SFS · 5-fold CV</option><option value="backward">Backward Elimination · 5-fold CV</option><option value="correlation">Correlation Ranking · 基準</option></select></div></div>
-            <button id="runButton" class="btn btn-primary" type="button">執行特徵選取與回歸分析 <span aria-hidden="true">→</span></button>
-            <p class="micro">固定 random seed=42；所有數值都依目前資料集重新計算，沒有寫死評分結果。</p>
+            <div class="form-row"><div><label for="targetSelect">預測目標 (Y)</label><select id="targetSelect"></select></div><div><label for="methodSelect">查看特徵選取方法</label><select id="methodSelect"><option value="pearson">1. Pearson (Filter)</option><option value="selectkbest">2. SelectKBest (Filter)</option><option value="rfe">3. RFE (Wrapper)</option><option value="forward" selected>4. Forward SFS (Wrapper)</option><option value="lasso">5. Lasso (Embedded)</option></select></div></div>
+            <button id="runButton" class="btn btn-primary" type="button">重新計算五種方法與全部圖表 <span aria-hidden="true">→</span></button>
+            <p class="micro">scikit-learn 相容的 train_test_split：test_size=0.2，random_state=42。五種方法使用同一份測試集，數值來自實際模型運算。</p>
           </div>
           <div class="card form-card secondary-card">
             <div class="card-title"><span class="icon-square">02</span> 匯入自訂資料 <small>Extra credit · +2</small></div>
@@ -65,7 +65,7 @@
       </section>
 
       <section class="section-block" id="evaluation">
-        <div class="section-heading"><div><span class="section-index">02 / MODEL PERFORMANCE</span><h2>模型成效與特徵數比較</h2><p>同一份訓練 / 測試切分；用訓練集交叉驗證選 k，再報告獨立測試集成效。</p></div><div class="metric-switch"><label for="kSelect">檢視特徵數 k</label><select id="kSelect"></select></div></div>
+        <div class="section-heading"><div><span class="section-index">02 / MODEL PERFORMANCE</span><h2>五種特徵選取法：與教授相同的雙圖比較</h2><p>五條線共同使用 Python 相容的 80/20 切分；縱軸皆是保留測試集的實測指標，橫軸是選用的特徵數 k。</p></div><div class="metric-switch"><label for="kSelect">檢視特徵數 k</label><select id="kSelect"></select></div></div>
         <div class="metric-grid" id="metricGrid">
           <div class="metric-card featured"><div class="metric-label">Holdout Test RMSE <span>↓</span></div><div class="metric-value" id="metricRMSE">—</div><div class="metric-sub">測試集平均平方誤差開根號</div></div>
           <div class="metric-card"><div class="metric-label">Holdout Test R² <span>↑</span></div><div class="metric-value" id="metricR2">—</div><div class="metric-sub">對未見資料的解釋能力</div></div>
@@ -74,9 +74,11 @@
         </div>
         <div id="bestHint" class="best-hint"></div>
         <div class="chart-grid">
-          <article class="card chart-card"><div class="card-heading"><div><h3>RMSE by Number of Features</h3><p>藍線：測試誤差；虛線：訓練集 CV 誤差（愈低愈好）</p></div><span class="subtag">Error</span></div><div class="chart-viewport" id="chartRMSE"></div><div class="chart-key"><span><i class="key-blue"></i>Test RMSE</span><span><i class="key-orange"></i>CV RMSE</span></div></article>
-          <article class="card chart-card"><div class="card-heading"><div><h3>R² by Number of Features</h3><p>比較不同 k 在測試集的泛化能力（愈高愈好）</p></div><span class="subtag">Fit quality</span></div><div class="chart-viewport" id="chartR2"></div><div class="chart-key"><span><i class="key-blue"></i>Holdout Test R²</span><span><i class="key-violet"></i>Train R²</span></div></article>
+          <article class="card chart-card"><div class="card-heading"><div><h3>RMSE by Number of Features</h3><p>五種 Feature Selection 演算法的 Test RMSE；越低越好。</p></div><span class="subtag">↓ Error</span></div><div class="chart-viewport comparison-chart" id="chartRMSE"></div><div class="comparison-legend" id="legendRMSE"></div></article>
+          <article class="card chart-card"><div class="card-heading"><div><h3>R-squared by Number of Features</h3><p>五種 Feature Selection 演算法的 Test R²；越高越好。</p></div><span class="subtag">↑ Fit quality</span></div><div class="chart-viewport comparison-chart" id="chartR2"></div><div class="comparison-legend" id="legendR2"></div></article>
         </div>
+        <div class="footnote-card comparison-footnote"><strong>教授圖片的六種圖例</strong><p>五條折線是 Pearson、SelectKBest、RFE、Forward SFS 與 Lasso 的「特徵選取後重新擬合 OLS」成效；金色星號則是 LassoCV 的「原生 L1 收縮模型」，屬於不同擬合方式，不應與選定 k 後的 OLS 折線混淆。Pearson 與線性 F 檢定的 SelectKBest 對單一特徵通常給出相同排序，折線可能完全重疊。兩題的分析結果皆重新計算。</p></div>
+        <article class="card table-card" style="margin-top:17px;margin-bottom:17px"><div class="card-heading"><div><h3>五種方法總比較</h3><p>各方法的 CV 最佳 k 與所選 k 的測試集分數；星號顯示 LassoCV 原生模型。</p></div><span class="subtag">5 methods + LassoCV</span></div><div class="scroll-table"><table><thead><tr><th>Feature Selection</th><th>CV 最佳 k</th><th>最佳 CV RMSE</th><th>選定 k Test RMSE</th><th>選定 k Test R²</th><th>訓練集選出的特徵</th></tr></thead><tbody id="comparisonBody"></tbody></table></div><p class="micro" id="lassoNativeSummary"></p></article>
         <article class="card table-card"><div class="card-heading"><div><h3>Feature Selection Progression</h3><p>每列是一組候選特徵；以 <strong>CV RMSE 最小</strong>的 k 作為建議模型。</p></div><span class="subtag">Reproducible split</span></div><div class="scroll-table"><table><thead><tr><th>k</th><th>特徵組合</th><th>5-fold CV RMSE ↓</th><th>Test RMSE ↓</th><th>Test R² ↑</th><th>Train R²</th><th>狀態</th></tr></thead><tbody id="progressBody"></tbody></table></div></article>
       </section>
 
@@ -96,7 +98,7 @@
 
       <section id="methodology" class="section-block">
         <div class="section-heading"><div><span class="section-index">05 / METHODOLOGY</span><h2>CRISP-DM 工作流程與模型限制</h2><p>資料清理、切分、建模、評估及部署都採相同流程處理兩個題目。</p></div></div>
-        <div class="method-grid"><div class="method-step"><span>01</span><h3>Business Understanding</h3><p>50 Startups 預測利潤；Boston Housing 預測歷史住宅價格中位數。</p></div><div class="method-step"><span>02</span><h3>Data Preparation</h3><p>去除缺值、類別 One-hot 編碼；只用訓練集計算迴歸標準化參數。</p></div><div class="method-step"><span>03</span><h3>Modeling</h3><p>80/20 固定切分、OLS 多元線性回歸、Forward / Backward / Correlation。</p></div><div class="method-step"><span>04</span><h3>Evaluation</h3><p>訓練集 5-fold CV 比較 k；另行評估未參與特徵選取的測試集。</p></div></div>
+        <div class="method-grid"><div class="method-step"><span>01</span><h3>Business Understanding</h3><p>50 Startups 預測利潤；Boston Housing 預測歷史住宅價格中位數。</p></div><div class="method-step"><span>02</span><h3>Data Preparation</h3><p>去除缺值、類別 One-hot 編碼；只用訓練集計算迴歸標準化參數。</p></div><div class="method-step"><span>03</span><h3>Modeling</h3><p>scikit-learn 相容 80/20 切分；Pearson、SelectKBest、RFE、Forward SFS、Lasso 的特徵比較。</p></div><div class="method-step"><span>04</span><h3>Evaluation</h3><p>訓練集 5-fold CV 比較 k，並在保留的測試集繪製 RMSE／R² 五條折線與 LassoCV 星號。</p></div></div>
         <div class="footnote-card"><strong>統計與資料倫理提醒</strong><p>R² 不代表因果關係。資料集小時測試結果會受 random seed 影響；這裡採固定 seed=42 便於重現。特徵選取中的 CV 分數仍有模型選擇偏差，測試資料不得回流參與選擇。Boston Housing 是歷史性的教學資料集，包含涉及種族的舊欄位（b），不適合用於當代實際房價決策。</p></div>
       </section>
     </div>

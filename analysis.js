@@ -114,9 +114,48 @@
     }
     return out;
   }
+  // NumPy RandomState-compatible MT19937 permutation, matching sklearn train_test_split.
+  function numpyPermutation(n, seed = 42) {
+    const mt = new Uint32Array(624);
+    mt[0] = seed >>> 0;
+    for (let i = 1; i < 624; i++) {
+      const v = mt[i - 1] ^ (mt[i - 1] >>> 30);
+      mt[i] = (Math.imul(1812433253, v) + i) >>> 0;
+    }
+    let index = 624;
+    function nextUint32() {
+      if (index === 624) {
+        for (let i = 0; i < 624; i++) {
+          const y = (mt[i] & 0x80000000) | (mt[(i + 1) % 624] & 0x7fffffff);
+          mt[i] = (mt[(i + 397) % 624] ^ (y >>> 1) ^ ((y & 1) ? 0x9908b0df : 0)) >>> 0;
+        }
+        index = 0;
+      }
+      let y = mt[index++];
+      y ^= y >>> 11;
+      y ^= (y << 7) & 0x9d2c5680;
+      y ^= (y << 15) & 0xefc60000;
+      y ^= y >>> 18;
+      return y >>> 0;
+    }
+    function interval(max) {
+      let mask = max >>> 0;
+      mask |= mask >>> 1; mask |= mask >>> 2; mask |= mask >>> 4;
+      mask |= mask >>> 8; mask |= mask >>> 16;
+      let value;
+      do { value = nextUint32() & mask; } while (value > max);
+      return value;
+    }
+    const order = Array.from({ length: n }, (_, i) => i);
+    for (let i = n - 1; i > 0; i--) {
+      const j = interval(i);
+      [order[i], order[j]] = [order[j], order[i]];
+    }
+    return order;
+  }
   function splitDataset(dataset, seed = 42) {
-    const order = shuffledIndices(dataset.rows.length, seed);
-    const testN = Math.max(4, Math.round(order.length * 0.20));
+    const order = numpyPermutation(dataset.rows.length, seed);
+    const testN = Math.max(4, Math.ceil(order.length * 0.20));
     return { train: order.slice(testN).map(i => dataset.rows[i]),
       test: order.slice(0, testN).map(i => dataset.rows[i]), seed, testRatio: testN / order.length };
   }
@@ -199,12 +238,118 @@
     }
     return aa > 0 && bb > 0 ? Math.abs(cross / Math.sqrt(aa * bb)) : 0;
   }
-  function selectFeatureOrder(train, p, method = 'forward') {
+  function fitLasso(rows, featureIndices, alpha, maxIterations = 3500) {
+    const n = rows.length, p = featureIndices.length;
+    if (n < 4 || !p || !Number.isFinite(alpha) || alpha < 0)
+      throw new Error('Lasso 的資料或 alpha 不合法');
+    const yMean = mean(rows.map(r => r.y));
+    const mus = featureIndices.map(j => mean(rows.map(r => r.x[j])));
+    const scales = featureIndices.map((j,i) => std(rows.map(r => r.x[j])));
+    const columns = featureIndices.map((j,k) => rows.map(r =>
+      scales[k] > 1e-12 ? (r.x[j] - mus[k]) / scales[k] : 0));
+    const colNorms = columns.map(x => sum(x.map(v => v * v)) / n);
+    const resid = rows.map(r => r.y - yMean);
+    const w = Array(p).fill(0);
+    for (let iter = 0; iter < maxIterations; iter++) {
+      let biggest = 0;
+      for (let j = 0; j < p; j++) {
+        if (colNorms[j] < 1e-12) continue;
+        const column = columns[j];
+        let rho = 0;
+        for (let i = 0; i < n; i++) rho += column[i] * (resid[i] + column[i] * w[j]);
+        rho /= n;
+        const next = Math.sign(rho) * Math.max(Math.abs(rho) - alpha, 0) / colNorms[j];
+        const delta = next - w[j];
+        if (delta !== 0) {
+          w[j] = next;
+          for (let i = 0; i < n; i++) resid[i] -= column[i] * delta;
+          biggest = Math.max(biggest, Math.abs(delta));
+        }
+      }
+      if (biggest < 1e-7) break;
+    }
+    const coefficients = w.map((v,j) => scales[j] > 1e-12 ? v / scales[j] : 0);
+    const intercept = yMean - sum(coefficients.map((v,j) => v * mus[j]));
+    return { featureIndices: [...featureIndices], intercept, coefficients,
+      standardizedCoefficients: w, alpha, n, p, type: 'LassoL1' };
+  }
+
+  function lassoCrossValidation(train, p, seed = 42) {
+    const indices = Array.from({length:p},(_,i)=>i);
+    const yMean = mean(train.map(r => r.y));
+    const xStats = indices.map(j => ({mu: mean(train.map(r => r.x[j])),
+      scale: std(train.map(r => r.x[j]))}));
+    const alphaMax = Math.max(...indices.map((j,k) => {
+      const s = xStats[k].scale;
+      return s > 1e-12 ? Math.abs(sum(train.map(r =>
+        ((r.x[j] - xStats[k].mu) / s) * (r.y - yMean))) / train.length) : 0;
+    }));
+    if (!Number.isFinite(alphaMax) || alphaMax < 1e-10)
+      throw new Error('LassoCV 無法處理沒有變異的資料');
+    // 35 alpha values on a standard logarithmic Lasso path (alpha_max ... 0.001*alpha_max).
+    // Fold assignment is training-only and fixed so the held-out test cannot leak into tuning.
+    const grid = Array.from({length:35},(_,i) => alphaMax * Math.pow(0.001, i/34));
+    const folds = Math.min(5, Math.max(3, Math.floor(train.length / 8)));
+    const order = shuffledIndices(train.length, seed + 1984);
+    const partitions = Array.from({length:folds},()=>({fit:[],hold:[]}));
+    for (let k = 0; k < folds; k++) {
+      for (let i = 0; i < order.length; i++) {
+        partitions[k][i % folds === k ? 'hold' : 'fit'].push(train[order[i]]);
+      }
+    }
+    let best = {cv:Infinity,alpha:grid[0]}, path=[];
+    for (const alpha of grid) {
+      let squared = 0, count = 0;
+      for (const fold of partitions) {
+        const m = fitLasso(fold.fit, indices, alpha, 1800);
+        for (const row of fold.hold) { squared += (row.y - predict(m,row.x)) ** 2; count++; }
+      }
+      const cv = Math.sqrt(squared/count);
+      path.push({alpha,cv});
+      if (cv < best.cv) best = {alpha,cv};
+    }
+    const model = fitLasso(train, indices, best.alpha, 5000);
+    const selected = model.standardizedCoefficients.filter(v => Math.abs(v) > 1e-5).length;
+    return { ...best, model, selected, path, folds };
+  }
+
+  function selectFeatureOrder(train, p, method = 'forward', lasso = null) {
     const available = Array.from({ length: p }, (_, i) => i);
-    if (method === 'correlation') {
+    if (method === 'correlation' || method === 'pearson' || method === 'selectkbest') {
       const y = train.map(r => r.y);
-      return available.sort((a, b) => pearsonAbs(train.map(r => r.x[b]), y)
-        - pearsonAbs(train.map(r => r.x[a]), y));
+      function score(j) {
+        const corr = pearsonAbs(train.map(r => r.x[j]), y);
+        if (method !== 'selectkbest') return corr;
+        const r2 = Math.min(corr*corr,1-1e-14);
+        // f_regression: F = (r²/(1-r²)) * (n-2), univariate regression with intercept.
+        return r2/(1-r2)*(train.length-2);
+      }
+      return available.sort((a, b) => score(b)-score(a) || a-b);
+    }
+    if (method === 'rfe') {
+      let retained = [...available], discarded = [];
+      while (retained.length > 1) {
+        let model;
+        try { model = fitOLS(train, retained); }
+        catch (_) { // gracefully drop a collinear feature first if necessary
+          discarded.push(retained.pop()); continue;
+        }
+        // RFE(LinearRegression) on standardized columns: squared scaled coefficients.
+        const scores = retained.map((j,k) => ({j,score:Math.abs(model.coefficients[k]) *
+          std(train.map(r => r.x[j]))}));
+        scores.sort((a,b) => a.score - b.score || b.j-a.j);
+        discarded.push(scores[0].j);
+        retained = retained.filter(j => j !== scores[0].j);
+      }
+      return [...retained, ...discarded.reverse()];
+    }
+    if (method === 'lasso') {
+      if (!lasso || !lasso.model) throw new Error('Lasso 需要已訓練的 LassoCV 模型');
+      const weights = lasso.model.standardizedCoefficients;
+      const y = train.map(r => r.y);
+      return available.sort((a,b) => Math.abs(weights[b]) - Math.abs(weights[a])
+        || pearsonAbs(train.map(r=>r.x[b]),y)-pearsonAbs(train.map(r=>r.x[a]),y)
+        || a-b);
     }
     const cache = new Map();
     function loss(indices) {
@@ -244,7 +389,8 @@
 
   function analyze(dataset, method = 'forward', seed = 42) {
     const split = splitDataset(dataset, seed);
-    const order = selectFeatureOrder(split.train, dataset.features.length, method);
+    const lasso = method === 'lasso' ? lassoCrossValidation(split.train,dataset.features.length,seed) : null;
+    const order = selectFeatureOrder(split.train, dataset.features.length, method, lasso);
     const progression = order.map((_, k) => {
       const indices = order.slice(0, k + 1);
       let model = null, training = null, testing = null, cv = null, error = null;
@@ -261,7 +407,22 @@
     if (!eligible.length) throw new Error('所有特徵組合均無法建立有效模型，請檢查資料');
     const best = [...eligible].sort((a, b) => a.cv - b.cv || a.k - b.k)[0];
     return { dataset, split, method, seed, order, progression, bestK: best.k,
-      best, foldCount: Math.min(5, Math.max(3, Math.floor(split.train.length / 8))) };
+      best, foldCount: Math.min(5, Math.max(3, Math.floor(split.train.length / 8))),
+      lassoCV: lasso ? {alpha:lasso.alpha,cv:lasso.cv,k:lasso.selected,
+        testing:evaluate(split.test,lasso.model),model:lasso.model} : null };
+  }
+  const COMPARISON_METHODS = [
+    {id:'pearson',name:'Pearson (Filter)',color:'#31679f'},
+    {id:'selectkbest',name:'SelectKBest (Filter)',color:'#df9a2c'},
+    {id:'rfe',name:'RFE (Wrapper)',color:'#2b8a54'},
+    {id:'forward',name:'Forward SFS (Wrapper)',color:'#b2565a'},
+    {id:'lasso',name:'Lasso (Embedded)',color:'#8760ab'}
+  ];
+  function compareAllMethods(dataset,seed=42) {
+    const results = {};
+    for (const method of COMPARISON_METHODS) results[method.id] = analyze(dataset,method.id,seed);
+    return {methods:COMPARISON_METHODS,results,seed,
+      lassoNative:results.lasso.lassoCV};
   }
 
   function calculateVIF(rows, indices) {
@@ -280,8 +441,9 @@
       : Number(inputs[f.source] === f.level));
   }
 
-  const api = { parseCSV, describeColumns, prepareDataset, splitDataset, shuffledIndices,
-    fitOLS, predict, evaluate, cvRMSE, selectFeatureOrder, analyze, calculateVIF,
+  const api = { parseCSV, describeColumns, prepareDataset, splitDataset, shuffledIndices, numpyPermutation,
+    fitOLS, fitLasso, lassoCrossValidation, predict, evaluate, cvRMSE, selectFeatureOrder,
+    analyze, compareAllMethods, COMPARISON_METHODS, calculateVIF,
     rowFromInputs, num, mean, median };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   root.MLR = api;

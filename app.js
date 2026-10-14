@@ -3,7 +3,7 @@
   'use strict';
   const A = window.MLR;
   const el = id => document.getElementById(id);
-  const state = { parsed: null, dataset: null, analysis: null,
+  const state = { parsed: null, dataset: null, analysis: null, comparison: null,
     selectedK: null, sourceName: '', key: 'startups', custom: null, defaults: {} };
 
   function esc(v) { return String(v).replace(/[&<>"']/g, c => ({
@@ -66,17 +66,30 @@
     // Leave an event-loop tick so large custom datasets show the progress label.
     window.setTimeout(() => {
       try {
-        state.analysis = A.analyze(state.dataset, el('methodSelect').value, 42);
+        state.comparison = A.compareAllMethods(state.dataset,42);
+        state.analysis = state.comparison.results[el('methodSelect').value];
         state.selectedK = state.analysis.bestK;
-        const select = el('kSelect');
-        select.innerHTML = state.analysis.progression.map(x => `<option value="${x.k}">k = ${x.k}${x.k === state.analysis.bestK ? ' ★ CV 最佳' : ''}</option>`).join('');
-        select.value = String(state.selectedK);
+        syncKSelector();
         renderDatasetSummary();
         renderAll();
-        status(`已完成分析：${state.sourceName} · ${state.dataset.rows.length} 筆有效資料 · ${state.analysis.progression.length} 組模型`);
+        status(`已完成五種方法：${state.sourceName} · ${state.dataset.rows.length} 筆有效資料 · 共 ${state.comparison.methods.length * state.analysis.progression.length} 組特徵模型，加上原生 LassoCV`);
       } catch (e) { status(`模型計算失敗：${e.message}`, true); console.error(e); }
-      finally { button.disabled = false; button.innerHTML = '執行特徵選取與回歸分析 <span aria-hidden="true">→</span>'; }
+      finally { button.disabled = false; button.innerHTML = '重新計算五種方法與全部圖表 <span aria-hidden="true">→</span>'; }
     }, 10);
+  }
+  function syncKSelector() {
+    const select = el('kSelect');
+    select.innerHTML = state.analysis.progression.map(x =>
+      `<option value="${x.k}">k = ${x.k}${x.k === state.analysis.bestK ? ' ★ CV 最佳' : ''}</option>`).join('');
+    select.value = String(state.selectedK);
+  }
+  function changeMethod() {
+    if (!state.comparison) return;
+    state.analysis = state.comparison.results[el('methodSelect').value];
+    if (!state.analysis) return;
+    state.selectedK = state.analysis.bestK;
+    syncKSelector();
+    renderAll();
   }
   function renderDatasetSummary() {
     const d = state.dataset, a = state.analysis;
@@ -95,6 +108,7 @@
     renderMetricCards();
     renderProgression();
     renderCharts();
+    renderComparisonTable();
     renderCoefficients();
     renderScatter();
     renderResiduals();
@@ -131,42 +145,90 @@
     el('kSelect').value = String(k);
     renderAll();
   }
-  function chartLine(points, otherPoints, opts) {
-    const W = 620, H = 285, L = 62, R = 22, T = 24, B = 49;
-    const values = [...points, ...otherPoints].filter(Number.isFinite);
-    if (!values.length) return '<p>沒有可顯示的資料。</p>';
-    const lo0 = Math.min(...values), hi0 = Math.max(...values);
-    const spread = Math.max((hi0 - lo0) * 0.15, Math.abs(hi0) * 0.035, 0.0001);
-    const lo = lo0 - spread, hi = hi0 + spread;
-    const x = i => L + (points.length === 1 ? (W - L - R) / 2 : i * (W - L - R) / (points.length - 1));
-    const y = n => T + (hi - n) * (H - T - B) / (hi - lo);
-    let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(opts.title)}" xmlns="http://www.w3.org/2000/svg">`;
-    for (let i = 0; i < 5; i++) {
-      const v = lo + i * (hi - lo) / 4, yy = y(v);
-      s += `<path d="M ${L} ${yy} H ${W-R}" stroke="#e8edf6" stroke-width="1"/>
-        <text x="${L-10}" y="${yy+4}" text-anchor="end" fill="#98a4b7" font-size="12">${esc(opts.ticks(v))}</text>`;
+  function comparisonChart(which) {
+    const compare = state.comparison;
+    if (!compare) return '<p>尚無可顯示資料。</p>';
+    const isRMSE = which === 'rmse', key = isRMSE ? 'rmse' : 'r2';
+    const count = state.dataset.features.length;
+    const all = compare.methods.map(method => ({ ...method,
+      points: compare.results[method.id].progression.map(p => p.testing?.[key]) }));
+    const native = compare.lassoNative;
+    const extra = native && native.k >= 1 && native.k <= count ? native.testing[key] : null;
+    const values = [...all.flatMap(v => v.points),extra].filter(Number.isFinite);
+    if (!values.length) return '<p>沒有可顯示的測試結果。</p>';
+    const W = 660, H = 330, L = 65, R = 21, T = 22, B = 48;
+    const min = Math.min(...values), max = Math.max(...values);
+    const span = Math.max(max-min, Math.abs(max)*0.01,0.0001);
+    const lo = min-span*0.12, hi = max+span*0.12;
+    const x = k => L + (count < 2 ? 0 : (k-1)/(count-1)*(W-L-R));
+    const y = v => H-B - (v-lo)/(hi-lo)*(H-T-B);
+    const label = v => isRMSE ? (Math.abs(v)>=1000 ? (v/1000).toFixed(1)+'k' : v.toFixed(1)) : v.toFixed(3);
+    let svg = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="五種方法 ${isRMSE?'RMSE':'R-squared'} 對特徵數的比較圖">`;
+    for(let tick=0;tick<=5;tick++) {
+      const value=lo+(hi-lo)*tick/5;
+      svg+=`<line x1="${L}" x2="${W-R}" y1="${y(value)}" y2="${y(value)}" stroke="#e5eaf3"/>
+        <text x="${L-10}" y="${y(value)+4}" text-anchor="end" fill="#8998ac" font-size="12">${esc(label(value))}</text>`;
     }
-    for (let i = 0; i < points.length; i++)
-      s += `<text x="${x(i)}" y="${H-B+24}" text-anchor="middle" fill="#8492a7" font-size="12">${i+1}</text>`;
-    s += `<text x="${(L+W-R)/2}" y="${H-5}" text-anchor="middle" fill="#8290a7" font-size="12">Number of Features (k)</text>`;
-    const selectionX = x(state.selectedK - 1);
-    s += `<path d="M ${selectionX} ${T} V ${H-B}" stroke="#adb7cb" stroke-dasharray="3 6"/>`;
-    function series(data, color, dash) {
-      const valid = data.map((v,i) => ({v,i})).filter(p => Number.isFinite(p.v));
-      if (!valid.length) return '';
-      const line = valid.map((p,j) => `${j ? 'L':'M'}${x(p.i).toFixed(1)} ${y(p.v).toFixed(1)}`).join(' ');
-      return `<path d="${line}" fill="none" stroke="${color}" stroke-width="3" ${dash ? 'stroke-dasharray="7 6"' : ''} stroke-linecap="round" stroke-linejoin="round"/>`
-        + valid.map(p => `<circle cx="${x(p.i)}" cy="${y(p.v)}" r="${state.selectedK === p.i+1 ? 6 : 4}" fill="#fff" stroke="${color}" stroke-width="2.4"><title>k=${p.i+1}: ${p.v.toFixed(4)}</title></circle>`).join('');
+    for(let k=1;k<=count;k++) {
+      svg+=`<text x="${x(k)}" y="${H-B+20}" text-anchor="middle" fill="#718197" font-size="11">${k}</text>`;
     }
-    s += series(otherPoints, opts.otherColor, true) + series(points, '#5069eb', false) + '</svg>';
-    return s;
+    svg+=`<text x="${(L+W-R)/2}" y="${H-5}" text-anchor="middle" fill="#748199" font-size="13">Number of Features (k)</text>
+      <line x1="${x(state.selectedK)}" x2="${x(state.selectedK)}" y1="${T}" y2="${H-B}" stroke="#a8b4d2" stroke-dasharray="3 6"/>`;
+    function shape(k,v,type,color) {
+      const cx=x(k),cy=y(v),r=4.2;
+      if(type===1)return `<rect x="${cx-r}" y="${cy-r}" width="${r*2}" height="${r*2}" fill="#fff" stroke="${color}" stroke-width="2"/>`;
+      if(type===2)return `<polygon points="${cx},${cy-r-1} ${cx+r+1},${cy+r} ${cx-r-1},${cy+r}" fill="#fff" stroke="${color}" stroke-width="2"/>`;
+      if(type===3)return `<polygon points="${cx},${cy-r-1} ${cx+r+1},${cy} ${cx},${cy+r+1} ${cx-r-1},${cy}" fill="#fff" stroke="${color}" stroke-width="2"/>`;
+      return `<circle cx="${cx}" cy="${cy}" r="${r}" fill="#fff" stroke="${color}" stroke-width="2"/>`;
+    }
+    for(let methodIdx=0; methodIdx<all.length;methodIdx++) {
+      const m=all[methodIdx], selected=m.id===state.analysis.method;
+      const valid=m.points.map((v,i)=>({k:i+1,v})).filter(p=>Number.isFinite(p.v));
+      if(!valid.length)continue;
+      const points=valid.map((p,i)=>`${i?'L':'M'}${x(p.k).toFixed(2)} ${y(p.v).toFixed(2)}`).join(' ');
+      svg+=`<path d="${points}" fill="none" stroke="${m.color}" stroke-width="${selected?3.1:2}" stroke-opacity="${selected?1:.77}" ${methodIdx===2?'stroke-dasharray="8 5"':methodIdx===3?'stroke-dasharray="3 5"':''} stroke-linejoin="round"/>`;
+      for(const p of valid) {
+        svg+=`<g>${shape(p.k,p.v,methodIdx,m.color)}<title>${esc(m.name)} | k=${p.k} | ${key.toUpperCase()}=${p.v.toFixed(5)}</title></g>`;
+      }
+    }
+    if (Number.isFinite(extra)) {
+      const centerX=x(native.k), centerY=y(extra);
+      const star=Array.from({length:10},(_,i)=>{
+        const angle=i*Math.PI/5-Math.PI/2,rad=i%2===0?9:4;
+        return `${(centerX+Math.cos(angle)*rad).toFixed(2)},${(centerY+Math.sin(angle)*rad).toFixed(2)}`;
+      }).join(' ');
+      svg+=`<polygon points="${star}" fill="#f8c34d" stroke="#694819" stroke-width="1.8"><title>LassoCV Native Shrinkage, k=${native.k}, ${key}=${extra.toFixed(5)}</title></polygon>`;
+    }
+    return svg+'</svg>';
   }
   function renderCharts() {
-    const p = state.analysis.progression;
-    el('chartRMSE').innerHTML = chartLine(p.map(r => r.testing?.rmse), p.map(r => r.cv),
-      { title: '測試 RMSE 和交叉驗證 RMSE 隨特徵數變化', otherColor:'#d59a55', ticks: n => Math.abs(n) >= 1000 ? (n / 1000).toFixed(1) + 'k' : n.toFixed(n < 10 ? 1 : 0) });
-    el('chartR2').innerHTML = chartLine(p.map(r => r.testing?.r2), p.map(r => r.training?.r2),
-      { title: '測試與訓練 R-squared 隨特徵數變化', otherColor: '#8870d0', ticks: n => n.toFixed(2) });
+    el('chartRMSE').innerHTML = comparisonChart('rmse');
+    el('chartR2').innerHTML = comparisonChart('r2');
+    const legend = state.comparison.methods.map(method =>
+      `<span class="${method.id===state.analysis.method?'legend-active':''}"><i style="background:${method.color}"></i>${esc(method.name)}</span>`).join('')
+      + '<span><b class="legend-star">★</b>LassoCV Native Shrinkage</span>';
+    el('legendRMSE').innerHTML = legend;
+    el('legendR2').innerHTML = legend;
+  }
+  function renderComparisonTable() {
+    const c = state.comparison;
+    el('comparisonBody').innerHTML=c.methods.map(method=>{
+      const result=c.results[method.id],p=result.progression[state.selectedK-1],best=result.best;
+      const selected = method.id === state.analysis.method;
+      return `<tr class="${selected?'selected-row':''}"><td><span class="method-color" style="background:${method.color}"></span>${esc(method.name)}</td>
+        <td>${best.k}</td><td>${fmt(best.cv)}</td><td>${fmt(p.testing?.rmse)}</td>
+        <td>${fmt(p.testing?.r2,4)}</td><td class="feature-list">${esc(p.names.join(' · '))}</td></tr>`;
+    }).join('');
+    const native=c.lassoNative;
+    if(native) {
+      const active=native.model.featureIndices.filter((_,i)=>Math.abs(native.model.standardizedCoefficients[i])>1e-5)
+        .map(j=>state.dataset.features[j].name);
+      el('comparisonBody').innerHTML+=`<tr class="native-lasso-row"><td><b class="legend-star">★</b> LassoCV Native Shrinkage</td>
+        <td>${native.k}</td><td>${fmt(native.cv)}</td><td>${fmt(native.testing.rmse)}</td>
+        <td>${fmt(native.testing.r2,4)}</td><td class="feature-list">${esc(active.join(' · '))}（原生 L1 模型）</td></tr>`;
+      el('lassoNativeSummary').textContent=`LassoCV 由訓練集交叉驗證選 alpha=${fmt(native.alpha,4)}，實際非零係數 ${native.k} 個。
+        星號是含 L1 正則化的直接預測結果；折線是按特徵排序選 k 後重新擬合的 OLS，兩者不可直接解讀為同一種模型。`;
+    }
   }
   function renderCoefficients() {
     const p = current(), d = state.dataset;
@@ -277,10 +339,22 @@
       target:d.target,units:unitName(),totalRows:d.parsed.rows.length,validRows:d.rows.length,
       droppedRows:d.dropped,ignoredColumns:d.ignored,encodedFeatures:d.features,
       split:{seed:42,train:a.split.train.length,test:a.split.test.length,
-        splitRule:'80% train / 20% holdout; shuffled seed=42'},
+        splitRule:'NumPy RandomState MT19937, sklearn train_test_split test_size=0.2 random_state=42',
+        holdoutRowNumbers:a.split.test.map(r=>r.id)},
       modeling:{type:'Ordinary Least Squares with centered/scaled QR',method:a.method,
         folds:a.foldCount,featureSelectionOn:'training set only',criterion:'min CV RMSE',
         recommendedK:a.bestK,displayedK:p.k},
+      teacherStyleComparison:state.comparison.methods.map(method=>({method:method.name,
+        bestK:state.comparison.results[method.id].bestK,
+        progression:state.comparison.results[method.id].progression.map(v=>({k:v.k,
+          features:v.names,cvRMSE:v.cv,testRMSE:v.testing?.rmse,testR2:v.testing?.r2}))})),
+      lassoNative:state.comparison.lassoNative && {
+        description:'Native L1 shrinkage, not refitted OLS',
+        alpha:state.comparison.lassoNative.alpha,
+        k:state.comparison.lassoNative.k,
+        cvRMSE:state.comparison.lassoNative.cv,
+        testRMSE:state.comparison.lassoNative.testing.rmse,
+        testR2:state.comparison.lassoNative.testing.r2},
       progression:a.progression.map(r=>({k:r.k,features:r.names,cvRMSE:r.cv,
         train:r.training&&{rmse:r.training.rmse,mae:r.training.mae,r2:r.training.r2},
         test:r.testing&&{rmse:r.testing.rmse,mae:r.testing.mae,r2:r.testing.r2},error:r.error})),
@@ -318,7 +392,7 @@
   function initialize() {
     el('datasetSelect').addEventListener('change',e=>loadProblem(e.target.value));
     el('targetSelect').addEventListener('change',rebuildDataset);
-    el('methodSelect').addEventListener('change',runAnalysis);
+    el('methodSelect').addEventListener('change',changeMethod);
     el('kSelect').addEventListener('change',e=>selectK(Number(e.target.value)));
     el('runButton').addEventListener('click',runAnalysis);
     el('loadUrlButton').addEventListener('click',loadCSVUrl);
