@@ -411,6 +411,40 @@
       lassoCV: lasso ? {alpha:lasso.alpha,cv:lasso.cv,k:lasso.selected,
         testing:evaluate(split.test,lasso.model),model:lasso.model} : null };
   }
+  /**
+   * LMS's original single-line reference, kept separate from the advanced
+   * five-selector comparison. NumPy/sklearn 80:20 split with random_state=0.
+   * The screenshot's final label is State_California but its score only
+   * reproduces when the fifth non-redundant predictor is Administration.
+   * Never substitute a dummy label for the predictor actually being fitted.
+   */
+  function courseBaseline(dataset, seed = 0) {
+    const split = splitDataset(dataset, seed);
+    const originalNames = [
+      'R&D Spend', 'Marketing Spend', 'State=New York',
+      'State=Florida', 'Administration'
+    ];
+    const exactOrder = dataset.target === 'Profit'
+      && originalNames.every(name => dataset.features.some(f => f.name === name));
+    const ordered = exactOrder
+      ? originalNames.map(name => dataset.features.findIndex(f => f.name === name))
+      : selectFeatureOrder(split.train, dataset.features.length, 'pearson').slice(0, 5);
+    const progression = ordered.map((_, k) => {
+      const indices = ordered.slice(0, k + 1);
+      const names = indices.map(i => dataset.features[i].name);
+      try {
+        const model = fitOLS(split.train, indices);
+        return { k: k + 1, indices, names, model, training: evaluate(split.train, model),
+          testing: evaluate(split.test, model), error: null };
+      } catch (e) {
+        return { k: k + 1, indices, names, model: null, training: null,
+          testing: null, error: e.message };
+      }
+    });
+    return { dataset, seed, split, order: ordered, exactOrder, progression,
+      referenceMismatch: exactOrder
+        ? 'LMS 截圖 k=5 寫 State_California，但 9137.990153 的實際模型第五特徵是 Administration。' : null };
+  }
   const COMPARISON_METHODS = [
     {id:'pearson',name:'Pearson (Filter)',color:'#31679f'},
     {id:'selectkbest',name:'SelectKBest (Filter)',color:'#df9a2c'},
@@ -443,7 +477,7 @@
 
   const api = { parseCSV, describeColumns, prepareDataset, splitDataset, shuffledIndices, numpyPermutation,
     fitOLS, fitLasso, lassoCrossValidation, predict, evaluate, cvRMSE, selectFeatureOrder,
-    analyze, compareAllMethods, COMPARISON_METHODS, calculateVIF,
+    analyze, compareAllMethods, courseBaseline, COMPARISON_METHODS, calculateVIF,
     rowFromInputs, num, mean, median };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   root.MLR = api;

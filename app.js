@@ -3,7 +3,7 @@
   'use strict';
   const A = window.MLR;
   const el = id => document.getElementById(id);
-  const state = { parsed: null, dataset: null, analysis: null, comparison: null,
+  const state = { parsed: null, dataset: null, analysis: null, comparison: null, baseline: null,
     selectedK: null, sourceName: '', key: 'startups', custom: null, defaults: {} };
 
   function esc(v) { return String(v).replace(/[&<>"']/g, c => ({
@@ -66,13 +66,14 @@
     // Leave an event-loop tick so large custom datasets show the progress label.
     window.setTimeout(() => {
       try {
+        state.baseline = A.courseBaseline(state.dataset,0);
         state.comparison = A.compareAllMethods(state.dataset,42);
         state.analysis = state.comparison.results[el('methodSelect').value];
         state.selectedK = state.analysis.bestK;
         syncKSelector();
         renderDatasetSummary();
         renderAll();
-        status(`已完成五種方法：${state.sourceName} · ${state.dataset.rows.length} 筆有效資料 · 共 ${state.comparison.methods.length * state.analysis.progression.length} 組特徵模型，加上原生 LassoCV`);
+        status(`已完成 LMS 單折線實驗 (seed=0) 與五方法進階比較 (seed=42)：${state.sourceName} · ${state.dataset.rows.length} 筆有效資料`);
       } catch (e) { status(`模型計算失敗：${e.message}`, true); console.error(e); }
       finally { button.disabled = false; button.innerHTML = '重新計算五種方法與全部圖表 <span aria-hidden="true">→</span>'; }
     }, 10);
@@ -105,6 +106,7 @@
   }
   function current() { return state.analysis?.progression.find(x => x.k === state.selectedK); }
   function renderAll() {
+    renderCourseBaseline();
     renderMetricCards();
     renderProgression();
     renderCharts();
@@ -113,6 +115,63 @@
     renderScatter();
     renderResiduals();
     renderPredictor();
+  }
+  function formatCourseFeature(name) {
+    return name.replace(/^State=/,'State_');
+  }
+  function courseLineChart(metric) {
+    const baseline=state.baseline;
+    const title=metric==='rmse'?'RMSE':'R-squared';
+    const points=baseline.progression.map(p=>p.testing?.[metric]);
+    const good=points.map((v,i)=>({k:i+1,value:v})).filter(x=>Number.isFinite(x.value));
+    if(!good.length)return `<p>${esc(title)} 沒有可用的測試數據</p>`;
+    const W=670,H=354,L=78,R=24,T=18,B=56;
+    const min=Math.min(...good.map(p=>p.value)),max=Math.max(...good.map(p=>p.value));
+    const slack=Math.max((max-min)*.09,Math.abs(max)*.0001,0.000001);
+    const lo=min-slack, hi=max+slack;
+    const x=k=>L+(k-1)/(Math.max(1,points.length-1))*(W-L-R);
+    const y=v=>H-B-(v-lo)/(hi-lo)*(H-T-B);
+    const tickLabel=v=>metric==='rmse' ? v.toFixed(Math.abs(v)<100?1:0) : v.toFixed(3);
+    let svg=`<svg viewBox="0 0 ${W} ${H}" role="img" xmlns="http://www.w3.org/2000/svg" aria-label="${esc(title)} by Number of Features — LMS benchmark">`;
+    for(let j=0;j<=5;j++){
+      const v=lo+(hi-lo)*j/5;
+      svg+=`<line x1="${L}" y1="${y(v)}" x2="${W-R}" y2="${y(v)}" stroke="#e6e8ec" stroke-width="1"/>
+        <text x="${L-11}" y="${y(v)+4}" text-anchor="end" fill="#687688" font-size="11">${esc(tickLabel(v))}</text>`;
+    }
+    svg+=`<line x1="${L}" y1="${T}" x2="${L}" y2="${H-B}" stroke="#8390a5"/>
+      <line x1="${L}" y1="${H-B}" x2="${W-R}" y2="${H-B}" stroke="#8390a5"/>`;
+    for(let k=1;k<=points.length;k++){
+      svg+=`<text x="${x(k)}" y="${H-B+19}" text-anchor="middle" font-size="12" fill="#556477">${k}</text>`;
+    }
+    const series=good.map((p,i)=>`${i?'L':'M'}${x(p.k).toFixed(2)} ${y(p.value).toFixed(2)}`).join(' ');
+    svg+=`<path d="${series}" fill="none" stroke="#1f77b4" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>`;
+    for(const p of good){
+      svg+=`<circle cx="${x(p.k)}" cy="${y(p.value)}" r="4.3" fill="#1f77b4"><title>k=${p.k}: ${p.value.toFixed(6)}</title></circle>`;
+    }
+    svg+=`<text x="${(L+W-R)/2}" y="${H-9}" text-anchor="middle" font-size="13" fill="#384c69">Number of Features</text>
+      <text x="19" y="${H/2}" transform="rotate(-90 19 ${H/2})" text-anchor="middle" font-size="13" fill="#384c69">${esc(title)}</text></svg>`;
+    return svg;
+  }
+  function renderCourseBaseline() {
+    const baseline=state.baseline;
+    if(!baseline)return;
+    el('referenceChartRMSE').innerHTML=courseLineChart('rmse');
+    el('referenceChartR2').innerHTML=courseLineChart('r2');
+    el('referenceTable').innerHTML=baseline.progression.map(p=>`<tr>
+      <td>${p.k}</td>
+      <td class="feature-list">[${esc(p.names.map(formatCourseFeature).join(', '))}]</td>
+      <td class="benchmark-number">${Number.isFinite(p.testing?.rmse)?p.testing.rmse.toFixed(6):'—'}</td>
+      <td class="benchmark-number">${Number.isFinite(p.testing?.r2)?p.testing.r2.toFixed(6):'—'}</td>
+    </tr>`).join('');
+    const original=state.key==='startups'&&baseline.exactOrder;
+    el('benchmarkBadge').textContent=original?'LMS STANDARD · SEED 0':'SAME WORKFLOW · SEED 0';
+    el('referenceIntro').textContent=original
+      ? '與課堂 LMS 標準圖同一條曲線：50 Startups、80/20 split、random_state=0。圖與下表數值皆由程式實際重算。'
+      : `使用相同單折線工作流程分析 ${state.sourceName}，以 Pearson 排序前 ${baseline.progression.length} 個特徵。結果不代表與 50 Startups 的 LMS 數值相同。`;
+    el('referenceSplit').textContent=`random_state=0 · test=${baseline.split.test.length}`;
+    el('referenceNote').textContent=original
+      ? '重要核對：LMS 原圖的 k=5 寫 State_California，但加入該欄位與已有州別 dummy／截距完全共線，無法得到圖上的 RMSE 9137.990153。實際可重現該數字的第五欄是 Administration，所以上表如實顯示 Administration。此差異已經用 Python scikit-learn 重算確認。'
+      : '圖表由目前載入的資料集重新訓練，數值會隨資料與目標欄位變動；無法建立 OLS 的特徵組合會顯示 —。';
   }
   function renderMetricCards() {
     const p = current(), a = state.analysis;

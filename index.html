@@ -12,7 +12,7 @@
   <header class="topbar">
     <div class="site-container nav-wrap">
       <a class="brand" href="#top"><span class="brand-symbol">Σ</span> DIC2 <strong>Regression Lab</strong></a>
-      <nav aria-label="主選單"><a href="#workspace">分析工作區</a><a href="#evaluation">模型評估</a><a href="#predictor">即時預測</a><a href="#methodology">方法與說明</a></nav>
+      <nav aria-label="主選單"><a href="#workspace">分析工作區</a><a href="#benchmark">LMS 標準圖</a><a href="#evaluation">五方法進階比較</a><a href="#predictor">即時預測</a></nav>
       <span class="nav-label">NCHU · AIoT Data Analytics</span>
     </div>
   </header>
@@ -34,7 +34,7 @@
           <div class="panel-separator"></div>
           <div class="panel-stat"><span>PROBLEMS</span><strong>02 <small>+ custom CSV</small></strong></div>
           <div class="panel-stat"><span>EXPERIMENT</span><strong>80 / 20 <small>train / test</small></strong></div>
-          <div class="panel-stat"><span>RANDOM SEED</span><strong>42 <small>reproducible</small></strong></div>
+          <div class="panel-stat"><span>LMS BENCHMARK SEED</span><strong>0 <small>sklearn-compatible</small></strong></div>
         </aside>
       </div>
     </section>
@@ -64,8 +64,20 @@
         <div class="data-strip" id="dataSummary" aria-live="polite"></div>
       </section>
 
+      <section class="section-block" id="benchmark">
+        <div class="section-heading"><div><span class="section-index">02 / LMS REFERENCE EXPERIMENT</span><h2>課堂標準結果：RMSE 與 R-squared</h2><p id="referenceIntro">與 LMS 作業截圖相同的單條藍線：50 Startups、測試比例 20%、random_state=0。每一個點都是重新訓練和測試算出的數字。</p></div><span class="section-status" id="benchmarkBadge">LMS BENCHMARK</span></div>
+        <div class="chart-grid benchmark-charts">
+          <article class="card chart-card benchmark-card"><h3>RMSE by Number of Features</h3><div class="chart-viewport benchmark-chart" id="referenceChartRMSE" aria-live="polite"></div></article>
+          <article class="card chart-card benchmark-card"><h3>R-squared by Number of Features</h3><div class="chart-viewport benchmark-chart" id="referenceChartR2" aria-live="polite"></div></article>
+        </div>
+        <article class="card table-card benchmark-table"><div class="card-heading"><div><h3>Feature Progression — LMS 對照表</h3><p>選用特徵依次增加，數值精確顯示到小數第 6 位；表格與上方兩張圖同一份模型結果。</p></div><span class="subtag" id="referenceSplit">seed=0 · test=20%</span></div>
+          <div class="scroll-table"><table><thead><tr><th>Number of Features</th><th>Selected Features</th><th>RMSE</th><th>R-squared</th></tr></thead><tbody id="referenceTable"></tbody></table></div>
+          <p class="micro" id="referenceNote"></p>
+        </article>
+      </section>
+
       <section class="section-block" id="evaluation">
-        <div class="section-heading"><div><span class="section-index">02 / MODEL PERFORMANCE</span><h2>五種特徵選取法：與教授相同的雙圖比較</h2><p>五條線共同使用 Python 相容的 80/20 切分；縱軸皆是保留測試集的實測指標，橫軸是選用的特徵數 k。</p></div><div class="metric-switch"><label for="kSelect">檢視特徵數 k</label><select id="kSelect"></select></div></div>
+        <div class="section-heading"><div><span class="section-index">03 / ADVANCED MODEL COMPARISON</span><h2>延伸分析：五種特徵選取演算法</h2><p>以下為另外一組進階實驗（seed=42）：五種方法放在相同的測試集比較。與上方 LMS 標準圖使用不同 seed，分數不能互相比較。</p></div><div class="metric-switch"><label for="kSelect">檢視特徵數 k</label><select id="kSelect"></select></div></div>
         <div class="metric-grid" id="metricGrid">
           <div class="metric-card featured"><div class="metric-label">Holdout Test RMSE <span>↓</span></div><div class="metric-value" id="metricRMSE">—</div><div class="metric-sub">測試集平均平方誤差開根號</div></div>
           <div class="metric-card"><div class="metric-label">Holdout Test R² <span>↑</span></div><div class="metric-value" id="metricR2">—</div><div class="metric-sub">對未見資料的解釋能力</div></div>
@@ -83,7 +95,7 @@
       </section>
 
       <section class="section-block">
-        <div class="section-heading"><div><span class="section-index">03 / COEFFICIENTS & DIAGNOSTICS</span><h2>解釋模型，檢查殘差</h2><p>查看入選特徵、係數和真實值對照，不把訓練分數誤當作實際準確度。</p></div><div class="button-group"><button class="btn btn-outline" id="csvButton" type="button">匯出預測 CSV</button><button class="btn btn-dark" id="reportButton" type="button">匯出分析報告 JSON ↗</button></div></div>
+        <div class="section-heading"><div><span class="section-index">04 / COEFFICIENTS & DIAGNOSTICS</span><h2>解釋模型，檢查殘差</h2><p>此區對應上方進階分析（seed=42）的當前方法與 k，與 LMS 標準圖屬於不同實驗。</p></div><div class="button-group"><button class="btn btn-outline" id="csvButton" type="button">匯出預測 CSV</button><button class="btn btn-dark" id="reportButton" type="button">匯出分析報告 JSON ↗</button></div></div>
         <div class="diagnostics-grid">
           <article class="card"><div class="card-heading"><div><h3>Regression Equation</h3><p>以原始資料的單位表示的回歸係數。</p></div></div><div class="equation-box" id="equation">—</div><div class="small-tagline">目前模型的特徵 <span id="activeFeatures"></span></div><div class="scroll-table"><table><thead><tr><th>變數</th><th>估計係數 β</th><th>VIF 共線性</th></tr></thead><tbody id="coeffBody"></tbody></table></div><p class="micro">解讀：其他變數固定時，自變數增加 1 單位的平均預測變化；VIF &gt; 5 可留意共線性。</p></article>
           <article class="card"><div class="card-heading"><div><h3>Actual vs. Predicted</h3><p>測試集散佈圖；點愈接近對角線，預測誤差愈小。</p></div><span class="subtag">Holdout 20%</span></div><div class="chart-viewport scatter-area" id="chartScatter"></div><div class="small-tagline" id="scatterSummary"></div></article>
@@ -92,14 +104,14 @@
       </section>
 
       <section id="predictor" class="section-block">
-        <div class="section-heading"><div><span class="section-index">04 / INTERACTIVE PREDICTION</span><h2>即時輸入，模擬預測</h2><p>自行修改特徵值，程式會直接使用選定的 OLS 模型重新計算。</p></div></div>
+        <div class="section-heading"><div><span class="section-index">05 / INTERACTIVE PREDICTION</span><h2>即時輸入，模擬預測</h2><p>自行修改特徵值，程式會使用進階分析當前選定的 OLS 模型重新計算。</p></div></div>
         <div class="predict-grid"><div class="card"><div class="card-heading"><div><h3>輸入預測條件</h3><p>輸入值預先填入資料集的中位數或第一個類別。</p></div></div><form id="predictForm" class="input-grid"></form></div><div class="prediction-result"><span>MODEL OUTPUT</span><h3 id="predictTitle">預測結果</h3><div class="pred-number" id="predNumber">—</div><div class="prediction-model" id="predModel"></div><div class="prediction-foot">這是示範模型的估計值，不是保證收益或實際房價。</div></div></div>
       </section>
 
       <section id="methodology" class="section-block">
-        <div class="section-heading"><div><span class="section-index">05 / METHODOLOGY</span><h2>CRISP-DM 工作流程與模型限制</h2><p>資料清理、切分、建模、評估及部署都採相同流程處理兩個題目。</p></div></div>
+        <div class="section-heading"><div><span class="section-index">06 / METHODOLOGY</span><h2>CRISP-DM 工作流程與模型限制</h2><p>資料清理、切分、建模、評估及部署都採相同流程處理兩個題目。</p></div></div>
         <div class="method-grid"><div class="method-step"><span>01</span><h3>Business Understanding</h3><p>50 Startups 預測利潤；Boston Housing 預測歷史住宅價格中位數。</p></div><div class="method-step"><span>02</span><h3>Data Preparation</h3><p>去除缺值、類別 One-hot 編碼；只用訓練集計算迴歸標準化參數。</p></div><div class="method-step"><span>03</span><h3>Modeling</h3><p>scikit-learn 相容 80/20 切分；Pearson、SelectKBest、RFE、Forward SFS、Lasso 的特徵比較。</p></div><div class="method-step"><span>04</span><h3>Evaluation</h3><p>訓練集 5-fold CV 比較 k，並在保留的測試集繪製 RMSE／R² 五條折線與 LassoCV 星號。</p></div></div>
-        <div class="footnote-card"><strong>統計與資料倫理提醒</strong><p>R² 不代表因果關係。資料集小時測試結果會受 random seed 影響；這裡採固定 seed=42 便於重現。特徵選取中的 CV 分數仍有模型選擇偏差，測試資料不得回流參與選擇。Boston Housing 是歷史性的教學資料集，包含涉及種族的舊欄位（b），不適合用於當代實際房價決策。</p></div>
+        <div class="footnote-card"><strong>統計與資料倫理提醒</strong><p>R² 不代表因果關係。LMS 標準圖使用 seed=0；五方法進階分析使用 seed=42，因此數值不該直接互相比較。特徵選取中的 CV 分數仍有模型選擇偏差，測試資料不得回流參與選擇。Boston Housing 是歷史性的教學資料集，包含涉及種族的舊欄位（b），不適合用於當代實際房價決策。</p></div>
       </section>
     </div>
   </main>

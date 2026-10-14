@@ -9,12 +9,30 @@
 
 主要展示題目選 **50 Startups**；網頁中的 Problem 下拉選單可將完全相同的方法套用至 Boston Housing，也可以匯入任意符合格式的 CSV 資料集。
 
+## LMS 作業原始截圖：單條藍線的逐點驗證（主要交付）
+
+本次以 LMS 作業頁最新提供的原始單曲線圖為主要驗收基準。實際重現方式為：`50_Startups.csv`、`LinearRegression`（OLS）、`train_test_split(test_size=0.2,random_state=0)`。全部資料指標都來自模型實際運算，並非將截圖數值寫死到網頁上。
+
+| Number of Features | 真正使用的特徵（逐步增加） | RMSE | R-squared |
+|---:|---|---:|---:|
+| 1 | R&D Spend | 8274.868018 | 0.946459 |
+| 2 | + Marketing Spend | 8198.797191 | 0.947439 |
+| 3 | + State_New York | 8309.059683 | 0.946015 |
+| 4 | + State_Florida | 8409.916714 | 0.944697 |
+| 5 | + Administration | 9137.990153 | 0.934707 |
+
+**資料驗證細節：** 50 筆資料固定拆成 40 筆訓練和 10 筆測試；測試集原始列索引（0-based）是 `[28,11,10,41,2,27,38,31,22,4]`。以 Python scikit-learn 獨立檢算，RMSE／R² 的五組數字全數一致到六位小數。
+
+**教師截圖的 k=5 欄位存在標示與數值不一致：** 截圖把第 5 個特徵寫成 `State_California`，但含截距和 `State_New York`、`State_Florida` 的 OLS 中，加上 `State_California` 並不提供獨立資訊，預測不會變。只有 k=5 使用 `Administration` 才能產生截圖上的 RMSE=9137.990153。本報告和網站明確列出實際欄位，避免誤把教師截圖的標籤當成已驗證的模型輸入。
+
+**另外一張五演算法進階比較圖**使用 seed=42，並不是 LMS 原始單線圖。網站把它放到「延伸分析」區，避免不同測試集的分數混淆。下文涉及五方法的結果均屬於該 seed=42 實驗。
+
 ## 二、資料處理與實驗設計
 
 - 資料清理：排除缺失或格式異常的資料列。
 - 類別處理：`State` 使用 One-hot Encoding 並移除基準州別；編碼後 50 Startups 有 **5** 個特徵。
 - Boston Housing 原始資料有 **13** 個預測特徵。
-- 使用 **NumPy RandomState(42) 相容的 MT19937** 打亂資料，以 scikit-learn `train_test_split(..., test_size=0.2, random_state=42)` 的方式分為 **80% 訓練集、20% 測試集**。這是與教授圖片對齊的關鍵。
+- LMS 標準單線圖使用 **NumPy RandomState(0) 相容的 MT19937**；五方法延伸比較則使用 RandomState(42)。兩者都是 scikit-learn `train_test_split(..., test_size=0.2)` 的相容切分，均為 **80% 訓練集、20% 測試集**。不可混為同一個測試結果。
 - 迴歸模型採 **Ordinary Least Squares (OLS)**，以標準化後的 QR 正交化求解，最後將係數轉回原始單位。
 - 五種不同的特徵選擇方法：**Pearson、SelectKBest、RFE（標準化係數遞迴消去）、Forward SFS（逐步加入）、Lasso（L1 embedded selection）**；將選定的特徵重新擬合 OLS，再在同一個測試集比較 k=1…5 的 RMSE 和 R²。
 - 額外以 LassoCV 訓練原生 L1 shrinkage 模型，以金色星號標示其非零特徵個數與測試集成效。這個星號的係數有收縮作用，不能與 OLS 重擬合折線當作同一種估計法。
@@ -22,7 +40,7 @@
 
 ## 三、實際運算結果
 
-以下是專案程式在兩套原始 CSV 上實際重新運算的結果，而非抄寫教師範例。
+以下是**五方法延伸實驗（seed=42）**在兩套 CSV 上的實際運算結果。LMS 標準圖（seed=0）已於報告開頭逐點列出，兩者屬不同實驗。
 
 | 項目 | 50 Startups | Boston Housing |
 |---|---:|---:|
@@ -55,7 +73,7 @@
 
 意思是：在另外兩項支出固定時，模型預測研發費增加 1 美元，利潤平均增加約 0.804 美元。這是**相關性下的條件預測係數**，不是因果推論。
 
-原始版本雖然也叫做 seed=42，但隨機洗牌使用不同演算法，造成 RMSE=9,850.21、R²=0.9399，與教授圖不同。修正為 NumPy MT19937 後，**k=1 的 RMSE=7,714.33、R²=0.92651 精確匹配教授圖**；Pearson k=2 的 RMSE=8,206.33、k=3=8,242.78，也與截圖曲線一致。LassoCV 原生星號目前為 k=3、RMSE 約 8,330.15、R² 約 0.91431；教授星號若仍有差異，來源是 alpha 搜尋／CV 配置或版本，而不是同一 OLS 模型算錯。
+原始版本雖然也叫做 seed=42，但隨機洗牌使用不同演算法，造成 RMSE=9,850.21、R²=0.9399，與當時提供的**進階比較圖**不同。修正為 NumPy MT19937 後，進階圖的 k=1 RMSE=7,714.33、R²=0.92651；Pearson k=2 RMSE=8,206.33、k=3=8,242.78。**這不是本次 LMS 原圖的 seed=0 數字**。LassoCV 原生星號目前為 k=3、RMSE 約 8,330.15、R² 約 0.91431；進階圖星號可能因 alpha 搜尋／CV 配置或版本而有差異。
 
 ### Boston Housing：模型解釋
 

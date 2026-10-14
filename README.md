@@ -2,7 +2,9 @@
 
 **課程：** 國立中興大學「物聯網應用與資料分析」／DIC2 多元線性回歸 50 Startups and Boston Housing  
 **作業：** 兩個 problem 都實作；以 **50 Startups** 為主要展示題目，Boston Housing 以同一套 workflow 切換。  
-**入口：** `index.html`（用 Chrome/Edge 雙擊開啟，不需後端、不需 API key）。
+**正式入口：** <https://prometheans152.github.io/AIoT-DIC2-MultipleLR/>。也可以雙擊 `index.html` 離線操作。
+
+**兩個實驗必須分開：** LMS 作業原始截圖的單條藍線用 `random_state=0`，另一張五演算法對照圖用 `random_state=42`。本網站把標準主圖放在上方，將五演算法作為進階分析保留在下方。
 
 ## 與 LMS 作業要求對照
 
@@ -12,15 +14,30 @@
 | Boston Housing 套用相同 skill / workflow | 下拉選單切換至 Boston Housing，預測 `medv`，所有結果重新計算 |
 | 加 1 分：下拉視窗呈現兩個問題 | 頁面第一區的 Problem 下拉選單 |
 | 加 2 分：任意輸入資料集 | 支援本機 CSV 上傳，以及允許 CORS 的公開 CSV URL 載入，且可自由選擇數值型 Y 欄位 |
-| 模型選取、可視化 | **Pearson / SelectKBest / RFE / Forward SFS / Lasso** 五條 Test RMSE / R² 曲線，另外標記 LassoCV 原生收縮模型；係數、VIF、殘差、即時預測 |
-| 可複現結果 | 80/20 split、NumPy MT19937 `random_state=42`，同 Python `train_test_split(..., random_state=42, test_size=.2)`；train-only CV 選特徵 |
+| LMS 作業標準圖 | 主畫面兩張**單條藍色折線**，RMSE／R² 曲線和下方逐 k 數值表格重算自 `random_state=0` |
+| 延伸模型比較 | **Pearson / SelectKBest / RFE / Forward SFS / Lasso** 五條 Test RMSE / R² 曲線，另標記 LassoCV 原生收縮模型，使用 `random_state=42` |
+| 可複現結果 | 80/20 split，NumPy MT19937 與 Python scikit-learn `train_test_split` 相容；兩個實驗各自固定 seed |
+
+## LMS 作業原圖：完整驗算（seed=0）
+
+下表不是抄入網站的固定成績；每個數值都由程式在同一份 `50_Startups.csv` 重新擬合與獨立測試算出，精度到小數第六位。
+
+| k | 真正加入 OLS 的新特徵 | RMSE | R-squared |
+|---|---|---:|---:|
+| 1 | R&D Spend | 8274.868018 | 0.946459 |
+| 2 | Marketing Spend | 8198.797191 | 0.947439 |
+| 3 | State_New York | 8309.059683 | 0.946015 |
+| 4 | State_Florida | 8409.916714 | 0.944697 |
+| 5 | Administration | 9137.990153 | 0.934707 |
+
+**原始圖片的 k=5 標籤與運算結果不一致：** LMS 圖片最後一欄標示 `State_California`，但包含截距、`State_New York` 與 `State_Florida` 時，加上 `State_California` 只是完全共線的冗餘欄位，OLS 測試集的分數不會改變。使用 scikit-learn 驗算確認，**第五欄加入 `Administration` 才會得到 9137.990153**。網站以實際模型輸入顯示 `Administration`，並明確標註截圖中的差異，不使用誤導性的欄位名稱。
 
 ## 開啟與操作
 
 1. 直接開啟 `index.html`。網頁使用隨附的 `data.js` 內建資料集，所以離線也能運作。
 2. 「題目 / Problem」選 `50 Startups` 或 `Boston Housing`。
-3. 兩個圖表會同時呈現五種特徵選取法的 RMSE 和 R² 軌跡；金色星號是原生 LassoCV 的結果。
-4. 在「查看特徵選取方法」選擇其中一種方法，配合「檢視特徵數 k」，觀察 RMSE、R²、迴歸係數及測試集殘差的變化。重新載入 CSV 後會重新計算五種方法。
+3. 優先查看**「課堂標準結果：RMSE 與 R-squared」**：兩張單折線圖和下方 k=1～5 數值表格，這才是 LMS 原始作業截圖所顯示的主要結果。
+4. 下方「延伸分析：五種特徵選取演算法」是另外一張課堂進階圖，金色星號代表原生 LassoCV。可以選擇方法與 k，比較係數和測試集殘差；此區使用不同 random seed。
 5. 在「即時輸入，模擬預測」修改自變數數值，預測結果即時更新。
 6. 額外加分：在「匯入自訂資料」選擇電腦中的 `.csv`；或貼上公開 CSV 網址按「載入 URL」。在目標欄位選單中決定要預測哪個數值欄位。
 7. 按「匯出預測 CSV」或「匯出分析報告 JSON」保存本次模型與獨立測試集結果。
@@ -31,7 +48,7 @@
 
 **1. 資料理解與整理：** 讀取 CSV、選數值目標、自動辨認數值與類別特徵、將類別展開為 one-hot 編碼（刪除基準組，避免 dummy-variable trap）；剔除不完整資料列。
 
-**2. 訓練測試分割：** 採用 NumPy `RandomState` 相容的 MT19937、固定種子 42 洗牌，`test_size=0.2` 向上取整。這與 Python scikit-learn `train_test_split(..., test_size=0.2, random_state=42)` 產生相同的測試列順序。50 Startups 的測試樣本原始資料列索引（0-based）為 `[13,39,30,45,17,48,26,25,32,19]`。五種方法都用此一切分。
+**2. 訓練測試分割：** 採用 NumPy `RandomState` 相容的 MT19937、`test_size=0.2` 向上取整。LMS 原始單曲線模式 seed=0，50 Startups 測試列索引（0-based）為 `[28,11,10,41,2,27,38,31,22,4]`；五方法延伸模式 seed=42，測試列索引為 `[13,39,30,45,17,48,26,25,32,19]`。兩個實驗都可由 scikit-learn 完整重現，但不能直接交叉比較分數。
 
 **3. 多元線性回歸：** 使用 OLS（ordinary least squares），在訓練資料內中心化、標準化後，以 QR 正交化解最小平方法，再把係數轉回原始單位。這能提高含不同量級特徵（例如大筆研發預算）的數值穩定性。
 
@@ -57,7 +74,7 @@
 
 ### 重要限制
 
-- 50 Startups 只有 50 筆資料，測試集只有 10 筆，換 random seed 將可能造成明顯分數差異。**修正為 NumPy MT19937 之後，本次單特徵 R&D 模型的測試集 RMSE=7,714.3349、R²=0.9265108，與教師截圖吻合。** 個別 CV 選 k、LassoCV alpha 與套件版本仍可能略有差異。
+- 50 Startups 只有 50 筆資料，測試集只有 10 筆，因此 random seed 改變會造成明顯分數差異：**LMS 原圖 seed=0 的 k=1 為 RMSE=8274.868018、R²=0.946459；進階圖 seed=42 的 k=1 則是 RMSE=7714.334891、R²=0.926511。兩者都正確，但不可混在同一條曲線。** LassoCV alpha 與交叉驗證設定仍可能因版本差異而不同。
 - Train-only CV 用於選擇特徵，仍可能有模型選擇偏差；本作業另保留獨立測試集，避免直接用 test 指標找最佳 k。
 - Boston Housing 的 `medv` 是歷史性房價中位數，單位約為千美元；原始 `b` 欄位包含與種族相關的過時資料定義。此資料**僅作課堂方法示範，不適合作為現代房價服務的真實決策依據**。
 - OLS 擬合不表示因果關係；自訂 CSV 可能有共線、異常值、類別過多、資料太少等問題，網頁會明確提示錯誤。
@@ -76,7 +93,7 @@
 node tests/regression.test.cjs
 ```
 
-驗證包含：CSV 引號、內建資料集筆數、OLS 合成資料精確還原、NumPy RandomState 42 測試列完全比對、五種特徵選取在兩套資料集的有限分數、LassoCV L1 原生模型及與教授 k=1～3 數值比對。
+驗證包含：CSV 引號、內建資料集筆數、OLS 合成資料精確還原、NumPy RandomState 0/42 測試列比對、**LMS 原圖 RMSE 與 R² 的五個數值全部六位小數精確匹配**、五種進階選取法、Boston Housing、LassoCV 原生模型。
 
 ## GitHub Pages 部署（選擇性）
 

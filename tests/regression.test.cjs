@@ -64,5 +64,34 @@ for(const [file,target,n,p] of datasetPairs){
     close(comparison.results.rfe.progression[2].testing.rmse,8995.9058,1e-3,
       'Teacher graph RFE k=3 RMSE');
   }
+  const lms = A.courseBaseline(ds,0);
+  ok(lms.seed===0,`${file}: LMS baseline uses seed 0`);
+  ok(lms.progression.length===Math.min(5,p),`${file}: LMS line has up to five points`);
+  ok(lms.progression.every(row=>row.testing && Number.isFinite(row.testing.rmse)
+    && Number.isFinite(row.testing.r2)),`${file}: computed LMS graph finite`);
+  if(file==='50_Startups.csv'){
+    const officialRMSE=[8274.868018,8198.797191,8309.059683,8409.916714,9137.990153];
+    const officialR2=[0.946459,0.947439,0.946015,0.944697,0.934707];
+    const order=['R&D Spend','Marketing Spend','State=New York','State=Florida','Administration'];
+    ok(lms.split.test.map(row=>row.id).join()===
+      [29,12,11,42,3,28,39,32,23,5].join(),
+      'LMS benchmark uses sklearn train_test_split random_state=0');
+    ok(lms.exactOrder, 'Correct five-feature order used for the LMS benchmark');
+    for(let i=0;i<5;i++){
+      close(lms.progression[i].testing.rmse,officialRMSE[i],0.0000005,
+        `LMS teacher screenshot RMSE k=${i+1} (six decimal places)`);
+      close(lms.progression[i].testing.r2,officialR2[i],0.0000005,
+        `LMS teacher screenshot R² k=${i+1} (six decimal places)`);
+      ok(lms.progression[i].names[i]===order[i],
+        `LMS k=${i+1} truthful feature label`);
+    }
+    // The screenshot's State_California label at k=5 is not the actual model
+    // producing RMSE 9137.990153. Adding a redundant California dummy with
+    // intercept leaves the 4-feature fitted values unchanged.
+    ok(lms.progression[4].names[4]==='Administration',
+      'LMS k5 explicitly labels the real predictor, not California dummy');
+    ok(lms.referenceMismatch.includes('State_California'),
+      'Document contradictory teacher k5 screenshot label');
+  }
 }
 console.log(`PASS (${assertions} assertions)`);
