@@ -14,3 +14,18 @@
 @media(max-width:460px){.comparison-legend{grid-template-columns:1fr;gap:4px}}
 .benchmark-charts{gap:16px;margin-bottom:16px}.benchmark-card{padding:20px 21px 13px}.benchmark-card h3{text-align:center;font-size:16px;letter-spacing:-.15px;margin:0 0 8px;font-weight:760}.benchmark-chart{min-height:260px}.benchmark-chart svg{width:100%;max-height:355px;overflow:visible}.benchmark-table{padding:17px 21px}.benchmark-table table{font-size:12px}.benchmark-table th,.benchmark-table td{padding:9px 13px}.benchmark-table tbody tr:nth-child(even){background:#fafbfd}.benchmark-table tbody tr:hover{background:#edf3ff}.benchmark-table .benchmark-number{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap;font-weight:660;color:#34415d}.benchmark-table th:nth-child(3),.benchmark-table th:nth-child(4){text-align:right}.benchmark-table .feature-list{min-width:360px;max-width:unset;font-size:11.5px}.benchmark-table .micro{margin-top:12px}.benchmark-charts+.benchmark-table{margin-top:0}
 @media(max-width:750px){.benchmark-chart{min-height:205px}.benchmark-card{padding:14px 9px 12px}.benchmark-table .feature-list{min-width:295px}.benchmark-table th,.benchmark-table td{padding:8px 10px}}
+/* Interactive SVG chart points — visible points retain the course reference style. */
+.chart-interaction-hint{color:#596a84;font-size:12px;margin:-7px 0 13px;line-height:1.7}
+.chart-point{cursor:pointer;outline:0;touch-action:manipulation}
+.chart-point .chart-hit-area{fill:transparent;stroke:transparent;stroke-width:1;pointer-events:all}
+.chart-point:hover .chart-hit-area,.chart-point:focus-visible .chart-hit-area{fill:rgba(76,100,225,.12);stroke:#526de5;stroke-width:1.6}
+.chart-point .chart-selected-ring{fill:none;stroke-width:2;opacity:.82;pointer-events:none}
+.chart-point-detail{background:#fff;border:1px solid #dfe6f2;border-left:3px solid #5472dd;border-radius:7px;padding:11px 14px;margin:-2px 0 17px;color:#62718a;font-size:12px;display:flex;flex-wrap:wrap;align-items:center;gap:7px 19px;line-height:1.65;min-height:47px}
+.chart-point-detail strong{color:#2646ae;font-weight:820}
+.chart-point-detail b{color:#273850;font-variant-numeric:tabular-nums}
+.chart-point-detail .chart-detail-note{width:100%;color:#6f7d96;font-size:11px}
+.benchmark-row-button{display:inline-flex;align-items:center;justify-content:center;min-width:30px;min-height:28px;padding:3px 9px;border-radius:5px;color:#3861d3}
+.benchmark-row-button:hover,.benchmark-row-button:focus-visible{background:#ecf1ff;outline:2px solid #7592ee;outline-offset:1px}
+.comparison-legend-btn{display:inline-flex;align-items:center;gap:0;padding:3px 5px;margin:0;text-align:left;background:transparent;border:1px solid transparent;border-radius:5px;color:inherit;font:inherit;cursor:pointer;min-width:0}
+.comparison-legend-btn:hover,.comparison-legend-btn:focus-visible{background:#edf1ff;border-color:#cfd9f7;outline:0}
+.comparison-legend .comparison-legend-btn.legend-active{font-weight:850;color:#26354e;background:#f3f6ff}

@@ -6,7 +6,7 @@
   <meta name="description" content="AIoT DIC2 multiple linear regression: 50 Startups, Boston Housing and your CSV datasets. Cross-validated feature selection, charts and downloadable results.">
   <title>AIoT DIC2 | Multiple Linear Regression Lab</title>
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
-  <link rel="stylesheet" href="styles.css?v=lms20261014-seed0">
+  <link rel="stylesheet" href="styles.css?v=clickpoints-20261014">
 </head>
 <body>
   <header class="topbar">
@@ -66,10 +66,12 @@
 
       <section class="section-block" id="benchmark">
         <div class="section-heading"><div><span class="section-index">02 / LMS REFERENCE EXPERIMENT</span><h2>課堂標準結果：RMSE 與 R-squared</h2><p id="referenceIntro">與 LMS 作業截圖相同的單條藍線：50 Startups、測試比例 20%、random_state=0。每一個點都是重新訓練和測試算出的數字。</p></div><span class="section-status" id="benchmarkBadge">LMS BENCHMARK</span></div>
+        <p class="chart-interaction-hint">點擊折線上的圓點，可顯示該 k 的精確分數與選用特徵；也可以用 Tab 選點後按 Enter。</p>
         <div class="chart-grid benchmark-charts">
           <article class="card chart-card benchmark-card"><h3>RMSE by Number of Features</h3><div class="chart-viewport benchmark-chart" id="referenceChartRMSE" aria-live="polite"></div></article>
           <article class="card chart-card benchmark-card"><h3>R-squared by Number of Features</h3><div class="chart-viewport benchmark-chart" id="referenceChartR2" aria-live="polite"></div></article>
         </div>
+        <div class="chart-point-detail" id="referencePointDetail" role="status" aria-live="polite">點擊任一資料點，即可查看對應 k 的 RMSE、R² 和選取特徵，並在下方表格同步反白。</div>
         <article class="card table-card benchmark-table"><div class="card-heading"><div><h3>Feature Progression — LMS 對照表</h3><p>選用特徵依次增加，數值精確顯示到小數第 6 位；表格與上方兩張圖同一份模型結果。</p></div><span class="subtag" id="referenceSplit">seed=0 · test=20%</span></div>
           <div class="scroll-table"><table><thead><tr><th>Number of Features</th><th>Selected Features</th><th>RMSE</th><th>R-squared</th></tr></thead><tbody id="referenceTable"></tbody></table></div>
           <p class="micro" id="referenceNote"></p>
@@ -89,6 +91,7 @@
           <article class="card chart-card"><div class="card-heading"><div><h3>RMSE by Number of Features</h3><p>五種 Feature Selection 演算法的 Test RMSE；越低越好。</p></div><span class="subtag">↓ Error</span></div><div class="chart-viewport comparison-chart" id="chartRMSE"></div><div class="comparison-legend" id="legendRMSE"></div></article>
           <article class="card chart-card"><div class="card-heading"><div><h3>R-squared by Number of Features</h3><p>五種 Feature Selection 演算法的 Test R²；越高越好。</p></div><span class="subtag">↑ Fit quality</span></div><div class="chart-viewport comparison-chart" id="chartR2"></div><div class="comparison-legend" id="legendR2"></div></article>
         </div>
+        <div class="chart-point-detail" id="advancedPointDetail" role="status" aria-live="polite">點擊進階折線圖的任一資料點，可選取演算法和 k；點擊金色星號可查看原生 LassoCV。</div>
         <div class="footnote-card comparison-footnote"><strong>教授圖片的六種圖例</strong><p>五條折線是 Pearson、SelectKBest、RFE、Forward SFS 與 Lasso 的「特徵選取後重新擬合 OLS」成效；金色星號則是 LassoCV 的「原生 L1 收縮模型」，屬於不同擬合方式，不應與選定 k 後的 OLS 折線混淆。Pearson 與線性 F 檢定的 SelectKBest 對單一特徵通常給出相同排序，折線可能完全重疊。兩題的分析結果皆重新計算。</p></div>
         <article class="card table-card" style="margin-top:17px;margin-bottom:17px"><div class="card-heading"><div><h3>五種方法總比較</h3><p>各方法的 CV 最佳 k 與所選 k 的測試集分數；星號顯示 LassoCV 原生模型。</p></div><span class="subtag">5 methods + LassoCV</span></div><div class="scroll-table"><table><thead><tr><th>Feature Selection</th><th>CV 最佳 k</th><th>最佳 CV RMSE</th><th>選定 k Test RMSE</th><th>選定 k Test R²</th><th>訓練集選出的特徵</th></tr></thead><tbody id="comparisonBody"></tbody></table></div><p class="micro" id="lassoNativeSummary"></p></article>
         <article class="card table-card"><div class="card-heading"><div><h3>Feature Selection Progression</h3><p>每列是一組候選特徵；以 <strong>CV RMSE 最小</strong>的 k 作為建議模型。</p></div><span class="subtag">Reproducible split</span></div><div class="scroll-table"><table><thead><tr><th>k</th><th>特徵組合</th><th>5-fold CV RMSE ↓</th><th>Test RMSE ↓</th><th>Test R² ↑</th><th>Train R²</th><th>狀態</th></tr></thead><tbody id="progressBody"></tbody></table></div></article>
@@ -117,7 +120,7 @@
   </main>
   <footer class="footer"><div class="site-container footer-wrap"><span>DIC2 / MULTIPLE LINEAR REGRESSION LAB</span><span>Sources: Avik Jain 50 Startups · selva86 BostonHousing · NCHU AIoT Data Analytics</span></div></footer>
   <script src="data.js"></script>
-  <script src="analysis.js?v=lms20261014-seed0"></script>
-  <script src="app.js?v=lms20261014-seed0"></script>
+  <script src="analysis.js?v=clickpoints-20261014"></script>
+  <script src="app.js?v=clickpoints-20261014"></script>
 </body>
 </html>
