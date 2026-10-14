@@ -1,4 +1,4 @@
-/* Interactive interface: two course problems + upload/URL CSV extra-credit. */
+/* Interactive regression platform: built-in datasets, custom CSV, models, and charts. */
 (function () {
   'use strict';
   const A = window.MLR;
@@ -31,7 +31,7 @@
   }
   function getRaw(key) {
     if (key === 'custom') return state.custom;
-    return { text: window.DIC2_BUILTIN[key],
+    return { text: window.REGRESSION_BUILTIN[key],
       name: key === 'startups' ? '50_Startups.csv' : 'BostonHousing.csv' };
   }
   function populateTarget(parsed, targetName) {
@@ -67,7 +67,7 @@
     // Leave an event-loop tick so large custom datasets show the progress label.
     window.setTimeout(() => {
       try {
-        state.baseline = A.courseBaseline(state.dataset,0);
+        state.baseline = A.baselineRegression(state.dataset,0);
         state.comparison = A.compareAllMethods(state.dataset,42);
         state.analysis = state.comparison.results[el('methodSelect').value];
         state.selectedK = state.analysis.bestK;
@@ -76,7 +76,7 @@
         syncKSelector();
         renderDatasetSummary();
         renderAll();
-        status(`已完成 LMS 單折線實驗 (seed=0) 與五方法進階比較 (seed=42)：${state.sourceName} · ${state.dataset.rows.length} 筆有效資料`);
+        status(`已完成基準分析 (seed=0) 與五方法比較 (seed=42)：${state.sourceName} · ${state.dataset.rows.length} 筆有效資料`);
       } catch (e) { status(`模型計算失敗：${e.message}`, true); console.error(e); }
       finally { button.disabled = false; button.innerHTML = '重新計算五種方法與全部圖表 <span aria-hidden="true">→</span>'; }
     }, 10);
@@ -110,7 +110,7 @@
   }
   function current() { return state.analysis?.progression.find(x => x.k === state.selectedK); }
   function renderAll() {
-    renderCourseBaseline();
+    renderBaseline();
     renderMetricCards();
     renderProgression();
     renderCharts();
@@ -120,10 +120,10 @@
     renderResiduals();
     renderPredictor();
   }
-  function formatCourseFeature(name) {
+  function formatFeatureName(name) {
     return name.replace(/^State=/,'State_');
   }
-  function courseLineChart(metric) {
+  function baselineLineChart(metric) {
     const baseline=state.baseline;
     const title=metric==='rmse'?'RMSE':'R-squared';
     const points=baseline.progression.map(p=>p.testing?.[metric]);
@@ -136,7 +136,7 @@
     const x=k=>L+(k-1)/(Math.max(1,points.length-1))*(W-L-R);
     const y=v=>H-B-(v-lo)/(hi-lo)*(H-T-B);
     const tickLabel=v=>metric==='rmse' ? v.toFixed(Math.abs(v)<100?1:0) : v.toFixed(3);
-    let svg=`<svg viewBox="0 0 ${W} ${H}" role="img" xmlns="http://www.w3.org/2000/svg" aria-label="${esc(title)} by Number of Features — LMS benchmark">`;
+    let svg=`<svg viewBox="0 0 ${W} ${H}" role="img" xmlns="http://www.w3.org/2000/svg" aria-label="${esc(title)} by Number of Features — baseline regression">`;
     for(let j=0;j<=5;j++){
       const v=lo+(hi-lo)*j/5;
       svg+=`<line x1="${L}" y1="${y(v)}" x2="${W-R}" y2="${y(v)}" stroke="#e6e8ec" stroke-width="1"/>
@@ -151,7 +151,7 @@
     svg+=`<path d="${series}" fill="none" stroke="#1f77b4" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>`;
     for(const p of good){
       const selected=state.baselineSelectedK===p.k;
-      const label=`LMS k=${p.k}，${title} ${p.value.toFixed(6)}。按 Enter 查看資料`;
+      const label=`基準分析 k=${p.k}，${title} ${p.value.toFixed(6)}。按 Enter 查看資料`;
       svg+=`<g class="chart-point ${selected?'chart-point-active':''}" data-chart-point="baseline" data-k="${p.k}"
         role="button" tabindex="0" aria-pressed="${selected}" aria-label="${esc(label)}">
         <circle class="chart-hit-area" cx="${x(p.k)}" cy="${y(p.value)}" r="15"/>
@@ -163,37 +163,37 @@
       <text x="19" y="${H/2}" transform="rotate(-90 19 ${H/2})" text-anchor="middle" font-size="13" fill="#384c69">${esc(title)}</text></svg>`;
     return svg;
   }
-  function renderCourseBaseline() {
+  function renderBaseline() {
     const baseline=state.baseline;
     if(!baseline)return;
-    el('referenceChartRMSE').innerHTML=courseLineChart('rmse');
-    el('referenceChartR2').innerHTML=courseLineChart('r2');
+    el('referenceChartRMSE').innerHTML=baselineLineChart('rmse');
+    el('referenceChartR2').innerHTML=baselineLineChart('r2');
     el('referenceTable').innerHTML=baseline.progression.map(p=>`<tr class="${state.baselineSelectedK===p.k?'selected-row':''}">
-      <td><button type="button" class="row-action benchmark-row-button" data-baseline-k="${p.k}" aria-pressed="${state.baselineSelectedK===p.k}" aria-label="檢視 LMS 標準圖 k=${p.k}">${p.k}</button></td>
-      <td class="feature-list">[${esc(p.names.map(formatCourseFeature).join(', '))}]</td>
+      <td><button type="button" class="row-action benchmark-row-button" data-baseline-k="${p.k}" aria-pressed="${state.baselineSelectedK===p.k}" aria-label="檢視基準分析 k=${p.k}">${p.k}</button></td>
+      <td class="feature-list">[${esc(p.names.map(formatFeatureName).join(', '))}]</td>
       <td class="benchmark-number">${Number.isFinite(p.testing?.rmse)?p.testing.rmse.toFixed(6):'—'}</td>
       <td class="benchmark-number">${Number.isFinite(p.testing?.r2)?p.testing.r2.toFixed(6):'—'}</td>
     </tr>`).join('');
     const original=state.key==='startups'&&baseline.exactOrder;
-    el('benchmarkBadge').textContent=original?'LMS STANDARD · SEED 0':'SAME WORKFLOW · SEED 0';
+    el('benchmarkBadge').textContent=original?'BASELINE · SEED 0':'CUSTOM BASELINE · SEED 0';
     el('referenceIntro').textContent=original
-      ? '與課堂 LMS 標準圖同一條曲線：50 Startups、80/20 split、random_state=0。圖與下表數值皆由程式實際重算。'
-      : `使用相同單折線工作流程分析 ${state.sourceName}，以 Pearson 排序前 ${baseline.progression.length} 個特徵。結果不代表與 50 Startups 的 LMS 數值相同。`;
+      ? '50 Startups 多元線性回歸：80/20 資料切分、random_state=0，以逐步增加特徵的 OLS 模型呈現 RMSE 與 R²。'
+      : `使用相同基準分析流程處理 ${state.sourceName}，以 Pearson 排序前 ${baseline.progression.length} 個特徵。不同資料集的指標不適合直接比較。`;
     el('referenceSplit').textContent=`random_state=0 · test=${baseline.split.test.length}`;
     el('referenceNote').textContent=original
-      ? '重要核對：LMS 原圖的 k=5 寫 State_California，但加入該欄位與已有州別 dummy／截距完全共線，無法得到圖上的 RMSE 9137.990153。實際可重現該數字的第五欄是 Administration，所以上表如實顯示 Administration。此差異已經用 Python scikit-learn 重算確認。'
+      ? '模型設計說明：已有 State_New York、State_Florida 與截距時，再加入 State_California 會造成完全共線性。第五個獨立特徵採用 Administration；所有數值依實際模型輸入重算。'
       : '圖表由目前載入的資料集重新訓練，數值會隨資料與目標欄位變動；無法建立 OLS 的特徵組合會顯示 —。';
     const selected=baseline.progression.find(p=>p.k===state.baselineSelectedK);
     el('referencePointDetail').innerHTML=selected?.testing
-      ? `<strong>LMS 標準圖 · k=${selected.k}</strong><span>RMSE <b>${fmt(selected.testing.rmse,6)}</b></span>
+      ? `<strong>基準分析 · k=${selected.k}</strong><span>RMSE <b>${fmt(selected.testing.rmse,6)}</b></span>
          <span>R² <b>${fmt(selected.testing.r2,6)}</b></span>
-         <span>選取特徵：${esc(selected.names.map(formatCourseFeature).join('、'))}</span>`
+         <span>選取特徵：${esc(selected.names.map(formatFeatureName).join('、'))}</span>`
       : '點擊任一資料點，即可查看對應 k 的 RMSE、R² 和選取特徵，並在下方表格同步反白。';
   }
   function selectBaselineK(k) {
     if(!Number.isInteger(k) || !state.baseline?.progression.some(p=>p.k===k && p.testing)) return;
     state.baselineSelectedK=k;
-    renderCourseBaseline();
+    renderBaseline();
   }
   function renderMetricCards() {
     const p = current(), a = state.analysis;
@@ -491,13 +491,13 @@
       const predicted=A.predict(p.model,row.x), e=row.y-predicted;
       lines.push([row.id,row.y,predicted,e,Math.abs(e),...state.dataset.columns.map(c=>row.original[c.name])].map(csvCell).join(','));
     }
-    download(`DIC2_${state.key}_k${p.k}_test_predictions.csv`,lines.join('\r\n'),'text/csv;charset=utf-8');
+    download(`regression_${state.key}_k${p.k}_test_predictions.csv`,lines.join('\r\n'),'text/csv;charset=utf-8');
   }
   function downloadReport() {
     if(!state.analysis) return;
     const a=state.analysis,p=current(),d=state.dataset;
-    const report={title:'DIC2 Multiple Linear Regression & Feature Selection',
-      generatedAt:new Date().toISOString(),source:state.sourceName,problem:state.key,
+    const report={title:'Regression Analytics Studio — Model Analysis',
+      generatedAt:new Date().toISOString(),source:state.sourceName,datasetKey:state.key,
       target:d.target,units:unitName(),totalRows:d.parsed.rows.length,validRows:d.rows.length,
       droppedRows:d.dropped,ignoredColumns:d.ignored,encodedFeatures:d.features,
       split:{seed:42,train:a.split.train.length,test:a.split.test.length,
@@ -506,7 +506,7 @@
       modeling:{type:'Ordinary Least Squares with centered/scaled QR',method:a.method,
         folds:a.foldCount,featureSelectionOn:'training set only',criterion:'min CV RMSE',
         recommendedK:a.bestK,displayedK:p.k},
-      teacherStyleComparison:state.comparison.methods.map(method=>({method:method.name,
+      featureSelectionComparison:state.comparison.methods.map(method=>({method:method.name,
         bestK:state.comparison.results[method.id].bestK,
         progression:state.comparison.results[method.id].progression.map(v=>({k:v.k,
           features:v.names,cvRMSE:v.cv,testRMSE:v.testing?.rmse,testR2:v.testing?.r2}))})),
@@ -526,8 +526,8 @@
         testMetrics:{rmse:p.testing.rmse,mae:p.testing.mae,r2:p.testing.r2,mape:p.testing.mape}},
       limitations:['Holdout results depend on dataset and chosen split',
         'Feature-selection CV is an internal selection criterion, not an unbiased final estimate',
-        'The historical BostonHousing data contains demographic proxy column b; educational use only']};
-    download(`DIC2_${state.key}_analysis_report.json`,JSON.stringify(report,null,2),'application/json;charset=utf-8');
+        'BostonHousing is historical and includes demographic proxy column b; avoid using it for current decisions']};
+    download(`regression_${state.key}_analysis_report.json`,JSON.stringify(report,null,2),'application/json;charset=utf-8');
   }
   function onCustomCSV(text,name) {
     state.custom={text,name};

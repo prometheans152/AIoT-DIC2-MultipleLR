@@ -1,4 +1,4 @@
-name: Deploy DIC2 Regression Lab
+name: Deploy Regression Analytics Studio
 on:
   push:
     branches: [main]

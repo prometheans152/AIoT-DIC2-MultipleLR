@@ -33,9 +33,9 @@ async function run() {
     for(const file of ['data.js','analysis.js','app.js']) window.eval(read(file));
     await sleep(160);
     ok($('#dataStatus').textContent.includes('已完成'), 'initial computation finished');
-    equal($('#referenceTable').querySelectorAll('tr').length, 5, 'five LMS reference rows');
-    equal($('#referenceChartRMSE').querySelectorAll('[data-chart-point="baseline"]').length, 5, 'five clickable LMS RMSE points');
-    equal($('#referenceChartR2').querySelectorAll('[data-chart-point="baseline"]').length, 5, 'five clickable LMS R² points');
+    equal($('#referenceTable').querySelectorAll('tr').length, 5, 'five baseline rows');
+    equal($('#referenceChartRMSE').querySelectorAll('[data-chart-point="baseline"]').length, 5, 'five clickable baseline RMSE points');
+    equal($('#referenceChartR2').querySelectorAll('[data-chart-point="baseline"]').length, 5, 'five clickable baseline R² points');
     ok($('#referencePointDetail').textContent.includes('點擊'), 'initial detail prompts for click');
 
     click(window,$('#referenceChartRMSE [data-chart-point="baseline"][data-k="3"]'));
@@ -44,7 +44,7 @@ async function run() {
     ok($('#referencePointDetail').textContent.includes('0.946015'), 'selected k=3 displays computed R²');
     ok($('#referenceChartRMSE [data-k="3"]').classList.contains('chart-point-active'), 'RMSE selected point is highlighted');
     ok($('#referenceChartR2 [data-k="3"]').classList.contains('chart-point-active'), 'paired R² point is highlighted');
-    ok($('#referenceTable [data-baseline-k="3"]').closest('tr').classList.contains('selected-row'), 'matching LMS table row is highlighted');
+    ok($('#referenceTable [data-baseline-k="3"]').closest('tr').classList.contains('selected-row'), 'matching baseline table row is highlighted');
 
     press(window,$('#referenceChartR2 [data-chart-point="baseline"][data-k="4"]'),'Enter');
     ok($('#referencePointDetail').textContent.includes('k=4'), 'keyboard Enter works on R² chart');
@@ -52,7 +52,7 @@ async function run() {
     press(window,$('#referenceChartRMSE [data-chart-point="baseline"][data-k="5"]'),' ');
     ok($('#referencePointDetail').textContent.includes('k=5'), 'keyboard Space activates benchmark point');
     click(window,$('#referenceTable [data-baseline-k="2"]'));
-    ok(detail('referencePointDetail').includes('8198.797191'), 'LMS table click selects matching chart point');
+    ok(detail('referencePointDetail').includes('8198.797191'), 'baseline table click selects matching chart point');
 
     const advanced = $('#chartRMSE [data-chart-point="advanced"][data-method="pearson"][data-k="2"]');
     ok(advanced && advanced.getAttribute('role')==='button' && advanced.getAttribute('tabindex')==='0', 'advanced SVG point is accessible');
@@ -78,7 +78,7 @@ async function run() {
     $('#datasetSelect').dispatchEvent(new window.Event('change',{bubbles:true}));
     await sleep(500);
     ok($('#dataStatus').textContent.includes('BostonHousing.csv'), 'dataset switch still works');
-    equal($('#referenceChartRMSE').querySelectorAll('[data-chart-point="baseline"]').length,5,'Boston LMS-style graph still offers five clickable dots');
+    equal($('#referenceChartRMSE').querySelectorAll('[data-chart-point="baseline"]').length,5,'Boston baseline graph still offers five clickable dots');
     click(window,$('#referenceChartRMSE [data-chart-point="baseline"][data-k="2"]'));
     ok($('#referencePointDetail').textContent.includes('k=2'), 'benchmark marker click works after switching dataset');
     ok($('#referencePointDetail').textContent.includes('lstat'), 'new dataset uses its own features');

@@ -14,7 +14,7 @@
 @media(max-width:460px){.comparison-legend{grid-template-columns:1fr;gap:4px}}
 .benchmark-charts{gap:16px;margin-bottom:16px}.benchmark-card{padding:20px 21px 13px}.benchmark-card h3{text-align:center;font-size:16px;letter-spacing:-.15px;margin:0 0 8px;font-weight:760}.benchmark-chart{min-height:260px}.benchmark-chart svg{width:100%;max-height:355px;overflow:visible}.benchmark-table{padding:17px 21px}.benchmark-table table{font-size:12px}.benchmark-table th,.benchmark-table td{padding:9px 13px}.benchmark-table tbody tr:nth-child(even){background:#fafbfd}.benchmark-table tbody tr:hover{background:#edf3ff}.benchmark-table .benchmark-number{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap;font-weight:660;color:#34415d}.benchmark-table th:nth-child(3),.benchmark-table th:nth-child(4){text-align:right}.benchmark-table .feature-list{min-width:360px;max-width:unset;font-size:11.5px}.benchmark-table .micro{margin-top:12px}.benchmark-charts+.benchmark-table{margin-top:0}
 @media(max-width:750px){.benchmark-chart{min-height:205px}.benchmark-card{padding:14px 9px 12px}.benchmark-table .feature-list{min-width:295px}.benchmark-table th,.benchmark-table td{padding:8px 10px}}
-/* Interactive SVG chart points — visible points retain the course reference style. */
+/* Interactive SVG chart points with accessible focus and larger hit targets. */
 .chart-interaction-hint{color:#596a84;font-size:12px;margin:-7px 0 13px;line-height:1.7}
 .chart-point{cursor:pointer;outline:0;touch-action:manipulation}
 .chart-point .chart-hit-area{fill:transparent;stroke:transparent;stroke-width:1;pointer-events:all}
