@@ -287,7 +287,7 @@
     if (!Number.isFinite(alphaMax) || alphaMax < 1e-10)
       throw new Error('LassoCV 無法處理沒有變異的資料');
     // 35 alpha values on a standard logarithmic Lasso path (alpha_max ... 0.001*alpha_max).
-    // Fold assignment is training-only and fixed so the held-out test cannot leak into tuning.
+    // Training-only fold membership is fixed; the held-out test cannot leak into tuning.
     const grid = Array.from({length:35},(_,i) => alphaMax * Math.pow(0.001, i/34));
     const folds = Math.min(5, Math.max(3, Math.floor(train.length / 8)));
     const order = shuffledIndices(train.length, seed + 1984);
